@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Erros de Leitura — GBS Serviços</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size:13px}
+.hdr{background:#1a4a1a;color:#fff;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.hdr img{height:36px}
+.hdr-title{font-size:16px;font-weight:500;letter-spacing:.5px;color:#c8e8c8;flex:1;text-align:center}
+.hdr-user{font-size:11px;color:#90c090;margin-right:8px}
+.btn-sair{background:none;border:1px solid #4a7a4a;color:#c8e8c8;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px}
+.nav{display:flex;gap:2px;background:#0f2e0f;padding:6px 20px}
+.nav button{background:none;border:none;color:#90c090;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:13px}
+.nav button.ativo{background:#2d7a2d;color:#fff}
+.nav button:hover:not(.ativo){background:#1a4a1a}
+.pag{display:none;padding:16px 20px}
+.pag.ativo{display:block}
+.filtros{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:12px 16px;margin-bottom:10px}
+.filtros label{font-size:11px;color:#4a7a4a;display:block;margin-bottom:3px}
+.filtros select{border:0.5px solid #a0c8a0;border-radius:5px;padding:4px 8px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:30px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:10px 14px;text-align:center}
+.kpi-label{font-size:10px;color:#4a7a4a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.kpi-value{font-size:22px;font-weight:500;color:#1a4a1a}
+.graficos-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.grafico-box{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:12px}
+.grafico-box h4{font-size:11px;font-weight:500;color:#4a7a4a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px;text-align:center}
+.grafico-box canvas{max-height:200px}
+.twrap{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;overflow:hidden}
+.twrap-hdr{background:#1a4a1a;color:#c0e8c0;padding:8px 14px;font-size:12px;font-weight:500;display:flex;justify-content:space-between;align-items:center}
+.twrap-body{overflow-x:auto;max-height:460px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#1a4a1a;color:#c0e8c0;font-weight:500;padding:6px 8px;text-align:center;white-space:nowrap;border-right:0.5px solid #2d6a2d;position:sticky;top:0;z-index:1}
+tbody tr:nth-child(even){background:#f8fbf8}
+tbody td{padding:5px 8px;text-align:center;border-bottom:0.5px solid #e0eee0;border-right:0.5px solid #f0f8f0;color:#1a2a1a}
+td.td-left{text-align:left}
+.pagination{display:flex;align-items:center;gap:6px;padding:8px 12px;justify-content:space-between;border-top:0.5px solid #e0eee0;font-size:12px;color:#4a7a4a}
+.pagination button{border:0.5px solid #a0c8a0;background:#f8fbf8;color:#1a4a1a;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px}
+.pagination button:disabled{opacity:.4;cursor:not-allowed}
+.status-msg{padding:20px;text-align:center;color:#4a7a4a;font-size:13px}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:700px}
+.upload-box{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:16px}
+.upload-box h3{font-size:13px;font-weight:500;color:#1a4a1a;margin-bottom:6px}
+.upload-box p{font-size:11px;color:#4a7a4a;margin-bottom:10px;line-height:1.5}
+.drop-area{border:1.5px dashed #a0c8a0;border-radius:6px;padding:16px;text-align:center;cursor:pointer;background:#f8fbf8;margin-bottom:10px;display:block}
+.drop-area:hover{background:#f0f8f0;border-color:#2d7a2d}
+.drop-area .icone{font-size:24px;margin-bottom:4px}
+.drop-area p{font-size:12px;color:#4a7a4a;margin:0}
+.btn{background:#2d7a2d;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;width:100%}
+.btn:hover{background:#1a5a1a}
+.btn:disabled{background:#90c090;cursor:not-allowed}
+.progresso{font-size:12px;color:#4a7a4a;margin-top:8px;min-height:18px}
+.progresso.ok{color:#16a34a}
+.progresso.erro{color:#dc2626}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <img src="../jornada/logo_gbs.png" alt="GBS" onerror="this.style.display='none'">
+  <div class="hdr-title">ERROS DE LEITURA</div>
+  <span class="hdr-user" id="hdr-user"></span>
+  <button class="btn-sair" onclick="sair()">Sair</button>
+</div>
+<div class="nav">
+  <button class="ativo" onclick="irPag('painel',this)">Painel</button>
+  <button onclick="irPag('admin',this)">Administração</button>
+</div>
+
+<!-- PAINEL -->
+<div class="pag ativo" id="pag-painel">
+  <div class="filtros">
+    <div><label>Mês do Erro</label>
+      <select id="f-mes" onchange="aplicarFiltros()"><option value="">Todos</option></select>
+    </div>
+    <div><label>RZ</label>
+      <select id="f-rz" onchange="aplicarFiltros()"><option value="">Todos</option></select>
+    </div>
+    <div><label>Base</label>
+      <select id="f-base" onchange="aplicarFiltros()"><option value="">Todas</option></select>
+    </div>
+    <div><label>Leiturista</label>
+      <select id="f-mat" onchange="aplicarFiltros()"><option value="">Todos</option></select>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Total de Erros</div><div class="kpi-value" id="kpi-total">—</div></div>
+    <div class="kpi"><div class="kpi-label">Bases Afetadas</div><div class="kpi-value" id="kpi-bases">—</div></div>
+    <div class="kpi"><div class="kpi-label">Leituristas</div><div class="kpi-value" id="kpi-leit">—</div></div>
+    <div class="kpi"><div class="kpi-label">RZs Afetados</div><div class="kpi-value" id="kpi-rzs">—</div></div>
+  </div>
+
+  <div class="graficos-row">
+    <div class="grafico-box">
+      <h4>Erros por Base</h4>
+      <canvas id="chart-base"></canvas>
+    </div>
+    <div class="grafico-box">
+      <h4>Erros por Mês</h4>
+      <canvas id="chart-mes"></canvas>
+    </div>
+    <div class="grafico-box">
+      <h4>Top 15 Leituristas</h4>
+      <canvas id="chart-leit"></canvas>
+    </div>
+  </div>
+
+  <div class="twrap">
+    <div class="twrap-hdr">
+      <span>Registros de Erro</span>
+      <span id="twrap-count" style="font-size:11px;color:#90c090"></span>
+    </div>
+    <div class="twrap-body">
+      <table>
+        <thead><tr>
+          <th>Instalação</th>
+          <th>UL</th>
+          <th>RZ</th>
+          <th>Mês Provável</th>
+          <th>Mês Erro</th>
+          <th>Matrícula</th>
+          <th style="text-align:left;min-width:140px">Leiturista</th>
+          <th style="text-align:left;min-width:100px">Cidade</th>
+          <th>Base</th>
+        </tr></thead>
+        <tbody id="tbody-erros"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="paginacao"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="pag" id="pag-admin">
+  <div class="admin-grid">
+    <div class="upload-box">
+      <h3>📋 Upload — Erros de Leitura</h3>
+      <p>Planilha diária com os erros. Substitui os dados do mesmo <strong>Mês Erro</strong>. Meses anteriores são mantidos.</p>
+      <label class="drop-area" for="inp-erros">
+        <div class="icone">📂</div>
+        <p id="tag-erros">Clique ou arraste o arquivo xlsx</p>
+      </label>
+      <input type="file" accept=".xlsx" id="inp-erros" style="display:none" onchange="selecionarErros(this)">
+      <button class="btn" id="btn-erros" onclick="processarErros()" disabled>Processar e salvar</button>
+      <div class="progresso" id="prog-erros"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL='https://ndwivbhqglpnfyqwjbzu.supabase.co';
+const SUPABASE_KEY='sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let todosErros=[];
+let dadosFiltrados=[];
+let pagAtual=1;
+const POR_PAG=50;
+let charts={};
+
+function irPag(id,btn){
+  document.querySelectorAll('.pag').forEach(p=>p.classList.remove('ativo'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('ativo'));
+  document.getElementById('pag-'+id).classList.add('ativo');
+  btn.classList.add('ativo');
+}
+async function sair(){await sb.auth.signOut();location.reload();}
+
+// ── CARREGAR DADOS ───────────────────────────────────────────────
+async function carregarDados(){
+  document.getElementById('tbody-erros').innerHTML=
+    '<tr><td colspan="9" class="status-msg">Carregando...</td></tr>';
+
+  // Buscar erros com join de matriculas
+  const {data:erros,error}=await sb.from('erros')
+    .select('instalacao,ul,rz,mes_provavel,mes_erro,matricula,cidade,base')
+    .order('mes_erro',{ascending:false})
+    .order('base');
+  if(error){console.error(error);return;}
+
+  // Buscar nomes dos leituristas
+  const mats=[...new Set((erros||[]).map(r=>r.matricula).filter(Boolean))];
+  let matMap={};
+  if(mats.length){
+    const {data:matData}=await sb.from('matriculas')
+      .select('matricula,nome_leiturista').in('matricula',mats);
+    (matData||[]).forEach(r=>matMap[r.matricula]=r.nome_leiturista);
+  }
+
+  todosErros=(erros||[]).map(r=>({...r,nome:matMap[r.matricula]||'—'}));
+
+  // Popular filtros
+  popularFiltros();
+  aplicarFiltros();
+}
+
+function popularFiltros(){
+  const meses=[...new Set(todosErros.map(r=>r.mes_erro).filter(Boolean))].sort().reverse();
+  const rzs=[...new Set(todosErros.map(r=>r.rz).filter(Boolean))].sort();
+  const bases=[...new Set(todosErros.map(r=>r.base).filter(Boolean))].sort();
+  const mats=[...new Set(todosErros.map(r=>r.matricula).filter(Boolean))].sort();
+
+  const fMes=document.getElementById('f-mes');
+  const fRz=document.getElementById('f-rz');
+  const fBase=document.getElementById('f-base');
+  const fMat=document.getElementById('f-mat');
+
+  fMes.innerHTML='<option value="">Todos</option>';
+  meses.forEach(m=>{
+    const [aa,mm]=m.split('-');
+    fMes.innerHTML+=`<option value="${m}">${mm}/${aa}</option>`;
+  });
+
+  fRz.innerHTML='<option value="">Todos</option>';
+  rzs.forEach(r=>fRz.innerHTML+=`<option value="${r}">${r}</option>`);
+
+  fBase.innerHTML='<option value="">Todas</option>';
+  bases.forEach(b=>fBase.innerHTML+=`<option value="${b}">${b}</option>`);
+
+  fMat.innerHTML='<option value="">Todos</option>';
+  mats.forEach(m=>{
+    const nome=todosErros.find(r=>r.matricula===m)?.nome||m;
+    fMat.innerHTML+=`<option value="${m}">${m} — ${nome}</option>`;
+  });
+}
+
+function aplicarFiltros(){
+  const mes=document.getElementById('f-mes').value;
+  const rz=document.getElementById('f-rz').value;
+  const base=document.getElementById('f-base').value;
+  const mat=document.getElementById('f-mat').value;
+
+  dadosFiltrados=todosErros.filter(r=>{
+    if(mes && r.mes_erro!==mes) return false;
+    if(rz && r.rz!==rz) return false;
+    if(base && r.base!==base) return false;
+    if(mat && r.matricula!==mat) return false;
+    return true;
+  });
+
+  pagAtual=1;
+  atualizarKpis();
+  atualizarGraficos();
+  renderTabela();
+}
+
+function atualizarKpis(){
+  document.getElementById('kpi-total').textContent=dadosFiltrados.length.toLocaleString('pt-BR');
+  document.getElementById('kpi-bases').textContent=new Set(dadosFiltrados.map(r=>r.base).filter(Boolean)).size;
+  document.getElementById('kpi-leit').textContent=new Set(dadosFiltrados.map(r=>r.matricula).filter(Boolean)).size;
+  document.getElementById('kpi-rzs').textContent=new Set(dadosFiltrados.map(r=>r.rz).filter(Boolean)).size;
+}
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function atualizarGraficos(){
+  // --- Erros por Base ---
+  destroyChart('base');
+  const porBase={};
+  dadosFiltrados.forEach(r=>{const k=r.base||'—';porBase[k]=(porBase[k]||0)+1;});
+  const basLabels=Object.keys(porBase).sort((a,b)=>porBase[b]-porBase[a]);
+  charts['base']=new Chart(document.getElementById('chart-base'),{
+    type:'bar',
+    data:{labels:basLabels,datasets:[{data:basLabels.map(k=>porBase[k]),backgroundColor:'#2d7a2d',borderRadius:3}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},maintainAspectRatio:true,responsive:true}
+  });
+
+  // --- Erros por Mês ---
+  destroyChart('mes');
+  const porMes={};
+  dadosFiltrados.forEach(r=>{
+    if(!r.mes_erro) return;
+    const[aa,mm]=r.mes_erro.split('-');
+    const k=`${mm}/${aa}`;
+    porMes[k]=(porMes[k]||0)+1;
+  });
+  const mesLabels=Object.keys(porMes).sort((a,b)=>{
+    const [ma,aa]=a.split('/');const [mb,ab]=b.split('/');
+    return new Date(aa,ma-1)-new Date(ab,mb-1);
+  });
+  charts['mes']=new Chart(document.getElementById('chart-mes'),{
+    type:'bar',
+    data:{labels:mesLabels,datasets:[{data:mesLabels.map(k=>porMes[k]),backgroundColor:'#1a6a8a',borderRadius:3}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},maintainAspectRatio:true,responsive:true}
+  });
+
+  // --- Top 15 Leituristas ---
+  destroyChart('leit');
+  const porLeit={};
+  dadosFiltrados.forEach(r=>{
+    const k=r.matricula||'—';
+    if(!porLeit[k]) porLeit[k]={qtd:0,nome:r.nome||r.matricula||'—'};
+    porLeit[k].qtd++;
+  });
+  const leitSort=Object.entries(porLeit).sort((a,b)=>b[1].qtd-a[1].qtd).slice(0,15);
+  charts['leit']=new Chart(document.getElementById('chart-leit'),{
+    type:'bar',
+    data:{
+      labels:leitSort.map(([mat,v])=>mat),
+      datasets:[{data:leitSort.map(([,v])=>v.qtd),backgroundColor:'#7a2d6a',borderRadius:3}]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:([ctx])=>{
+        const mat=leitSort[ctx.dataIndex][0];
+        return `${mat} — ${porLeit[mat].nome}`;
+      }}}},
+      scales:{x:{ticks:{font:{size:10}},beginAtZero:true},y:{ticks:{font:{size:10}}}},
+      maintainAspectRatio:true,responsive:true
+    }
+  });
+}
+
+function renderTabela(){
+  const inicio=(pagAtual-1)*POR_PAG;
+  const pagina=dadosFiltrados.slice(inicio,inicio+POR_PAG);
+  document.getElementById('twrap-count').textContent=`${dadosFiltrados.length} registros`;
+
+  if(!pagina.length){
+    document.getElementById('tbody-erros').innerHTML=
+      '<tr><td colspan="9" class="status-msg">Nenhum registro encontrado.</td></tr>';
+    document.getElementById('paginacao').innerHTML='';
+    return;
+  }
+
+  document.getElementById('tbody-erros').innerHTML=pagina.map(r=>{
+    const[aa,mm]=(r.mes_erro||'').split('-');
+    const mesErroFmt=mm&&aa?`${mm}/${aa}`:(r.mes_erro||'—');
+    const[aa2,mm2]=(r.mes_provavel||'').split('-');
+    const mesPFmt=mm2&&aa2?`${mm2}/${aa2}`:(r.mes_provavel||'—');
+    return `<tr>
+      <td>${r.instalacao||'—'}</td>
+      <td>${r.ul||'—'}</td>
+      <td>${r.rz||'—'}</td>
+      <td>${mesPFmt}</td>
+      <td>${mesErroFmt}</td>
+      <td>${r.matricula||'—'}</td>
+      <td class="td-left">${r.nome||'—'}</td>
+      <td class="td-left">${r.cidade||'—'}</td>
+      <td>${r.base||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Paginação
+  const totalPag=Math.ceil(dadosFiltrados.length/POR_PAG);
+  document.getElementById('paginacao').innerHTML=`
+    <span>${inicio+1}–${Math.min(inicio+POR_PAG,dadosFiltrados.length)} de ${dadosFiltrados.length}</span>
+    <div style="display:flex;gap:4px">
+      <button onclick="irPagina(1)" ${pagAtual===1?'disabled':''}>«</button>
+      <button onclick="irPagina(${pagAtual-1})" ${pagAtual===1?'disabled':''}>‹</button>
+      <span style="padding:3px 8px;font-weight:500">${pagAtual} / ${totalPag}</span>
+      <button onclick="irPagina(${pagAtual+1})" ${pagAtual===totalPag?'disabled':''}>›</button>
+      <button onclick="irPagina(${totalPag})" ${pagAtual===totalPag?'disabled':''}>»</button>
+    </div>`;
+}
+
+function irPagina(p){pagAtual=p;renderTabela();window.scrollTo(0,0);}
+
+// ── UPLOAD ───────────────────────────────────────────────────────
+let fileErros=null;
+function selecionarErros(inp){
+  fileErros=inp.files[0]; if(!fileErros) return;
+  document.getElementById('tag-erros').textContent=fileErros.name;
+  document.getElementById('btn-erros').disabled=false;
+}
+
+async function processarErros(){
+  if(!fileErros) return;
+  const prog=document.getElementById('prog-erros');
+  const btn=document.getElementById('btn-erros');
+  btn.disabled=true; prog.className='progresso'; prog.textContent='Lendo arquivo...';
+  try{
+    const buf=await fileErros.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:null});
+
+    if(!rows.length){prog.textContent='Planilha vazia.';btn.disabled=false;return;}
+
+    // Mapear colunas — aceita variações de nome
+    const col=(row,nomes)=>{
+      for(const n of nomes){
+        if(row[n]!=null) return String(row[n]).trim();
+      }
+      return null;
+    };
+
+    const recs=rows.map(row=>{
+      const instalacao=col(row,['Instalacao','Instalação','INSTALACAO']);
+      const ul=col(row,['UL','ul']);
+      const mesP=col(row,['Mes Provavel','Mês Provável','MES_PROVAVEL','Mes_Provavel']);
+      const matricula=col(row,['Matricula','Matrícula','MATRICULA']);
+      const mesE=col(row,['Mes Erro','Mês Erro','MES_ERRO','Mes_Erro']);
+      if(!instalacao||!ul||!mesE) return null;
+      // Converter mm/yyyy para yyyy-mm-01
+      const parseMes=s=>{
+        if(!s) return null;
+        const m=String(s).match(/^(\d{2})\/(\d{4})$/);
+        return m?`${m[2]}-${m[1]}-01`:null;
+      };
+      const rz=String(ul).padStart(8,'0').slice(0,2);
+      const lc=String(ul).padStart(8,'0').slice(2,6);
+      return {
+        instalacao,
+        ul:String(ul).padStart(8,'0'),
+        rz,
+        local_cod:lc,
+        mes_provavel:parseMes(mesP),
+        mes_erro:parseMes(mesE),
+        matricula:matricula||null,
+      };
+    }).filter(Boolean);
+
+    if(!recs.length){prog.textContent='Nenhum dado válido encontrado.';btn.disabled=false;return;}
+
+    // Enriquecer com cidade/base via local_base
+    prog.textContent='Buscando dados de cidade/base...';
+    const lcs=[...new Set(recs.map(r=>r.local_cod).filter(Boolean))];
+    const {data:lbData}=await sb.from('local_base').select('local,cidade,base').in('local',lcs);
+    const lbMap={};
+    (lbData||[]).forEach(r=>lbMap[r.local]={cidade:r.cidade,base:r.base});
+
+    const recsEnriq=recs.map(r=>{
+      const lb=lbMap[r.local_cod]||{};
+      return {
+        instalacao:r.instalacao,
+        ul:r.ul,
+        rz:r.rz,
+        mes_provavel:r.mes_provavel,
+        mes_erro:r.mes_erro,
+        matricula:r.matricula,
+        cidade:lb.cidade||null,
+        base:lb.base||null,
+      };
+    });
+
+    // Agrupar por mes_erro — deletar só os meses presentes no arquivo
+    const mesesNoArquivo=[...new Set(recsEnriq.map(r=>r.mes_erro).filter(Boolean))];
+    prog.textContent=`Atualizando ${mesesNoArquivo.length} mês/meses no banco...`;
+    for(const mes of mesesNoArquivo){
+      await sb.from('erros').delete().eq('mes_erro',mes);
+    }
+
+    // Inserir em lotes
+    const LOTE=200;
+    for(let i=0;i<recsEnriq.length;i+=LOTE){
+      const {error}=await sb.from('erros').insert(recsEnriq.slice(i,i+LOTE));
+      if(error) throw error;
+      prog.textContent=`Salvando... ${Math.min(i+LOTE,recsEnriq.length)}/${recsEnriq.length}`;
+    }
+
+    prog.className='progresso ok';
+    prog.textContent=`✓ ${recsEnriq.length} erros salvos (${mesesNoArquivo.length} mês/meses)!`;
+    await carregarDados();
+  }catch(e){
+    prog.className='progresso erro';
+    prog.textContent='Erro: '+e.message;
+    console.error(e);
+  }
+  btn.disabled=false;
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+(async()=>{
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user){location.href='../login.html';return;}
+  document.getElementById('hdr-user').textContent=user.email;
+  await carregarDados();
+})();
+</script>
+</body>
+</html>
