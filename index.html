@@ -179,10 +179,12 @@ async function carregarDados(){
     '<tr><td colspan="9" class="status-msg">Carregando...</td></tr>';
 
   // Buscar erros com join de matriculas
-  const {data:erros,error}=await sb.from('erros')
+  let q=sb.from('erros')
     .select('instalacao,ul,rz,mes_provavel,mes_erro,matricula,cidade,base')
     .order('mes_erro',{ascending:false})
     .order('base');
+  if(PERFIL_BASE) q=q.eq('base',PERFIL_BASE);
+  const {data:erros,error}=await q;
   if(error){console.error(error);return;}
 
   // Buscar nomes dos leituristas
@@ -221,8 +223,10 @@ function popularFiltros(){
   fRz.innerHTML='<option value="">Todos</option>';
   rzs.forEach(r=>fRz.innerHTML+=`<option value="${r}">${r}</option>`);
 
-  fBase.innerHTML='<option value="">Todas</option>';
-  bases.forEach(b=>fBase.innerHTML+=`<option value="${b}">${b}</option>`);
+  if(!PERFIL_BASE){
+    fBase.innerHTML='<option value="">Todas</option>';
+    bases.forEach(b=>fBase.innerHTML+=`<option value="${b}">${b}</option>`);
+  }
 
   fMat.innerHTML='<option value="">Todos</option>';
   mats.forEach(m=>{
@@ -234,7 +238,7 @@ function popularFiltros(){
 function aplicarFiltros(){
   const mes=document.getElementById('f-mes').value;
   const rz=document.getElementById('f-rz').value;
-  const base=document.getElementById('f-base').value;
+  const base=PERFIL_BASE||document.getElementById('f-base').value;
   const mat=document.getElementById('f-mat').value;
 
   dadosFiltrados=todosErros.filter(r=>{
@@ -467,11 +471,39 @@ async function processarErros(){
   btn.disabled=false;
 }
 
+// ── PERFIL DO USUÁRIO ─────────────────────────────────────────────
+let PERFIL_BASE=null, PERFIL_TIPO=null;
+
 // ── INIT ─────────────────────────────────────────────────────────
 (async()=>{
   const {data:{user}}=await sb.auth.getUser();
   if(!user){location.href='../login.html';return;}
-  document.getElementById('hdr-user').textContent=user.email;
+
+  const {data:up}=await sb.from('usuarios_portal').select('nome,perfil,base,ativo').eq('id',user.id).single();
+  if(up&&up.ativo){
+    PERFIL_TIPO=up.perfil; PERFIL_BASE=up.base||null;
+    document.getElementById('hdr-user').textContent=up.nome||user.email;
+  } else {
+    document.getElementById('hdr-user').textContent=user.email;
+    PERFIL_TIPO='gestor'; PERFIL_BASE=null;
+  }
+
+  // Esconder admin se não for gestor
+  if(PERFIL_TIPO!=='gestor'){
+    document.querySelectorAll('.nav button').forEach(btn=>{
+      if(btn.textContent.trim()==='Administração') btn.style.display='none';
+    });
+  }
+
+  // Travar filtro de base se supervisor
+  if(PERFIL_BASE){
+    const fBase=document.getElementById('f-base');
+    fBase.innerHTML=`<option value="${PERFIL_BASE}">${PERFIL_BASE}</option>`;
+    fBase.value=PERFIL_BASE;
+    fBase.disabled=true;
+    fBase.closest('div').style.display='none';
+  }
+
   await carregarDados();
 })();
 </script>
