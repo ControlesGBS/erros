@@ -495,28 +495,30 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
   const {data:cfg}=await sb.from('tratativas_config').select('*').single();
   if(!cfg||!cfg.erros_ativo||cfg.erros_email_pausado) return;
   const qtdGatilho=cfg.erros_qtd||1;
-  // Agrupar erros por matricula
+  // Agrupar erros por matricula+base
   const contagem={};
   recsEnriq.forEach(r=>{
     if(!r.matricula) return;
-    const mat=r.matricula;
-    if(!contagem[mat]) contagem[mat]={qtd:0,base:r.base,nome:null};
-    contagem[mat].qtd++;
+    const chave=`${r.matricula}|${r.base||''}`;
+    if(!contagem[chave]) contagem[chave]={qtd:0,base:r.base,matricula:r.matricula,nome:null};
+    contagem[chave].qtd++;
   });
   // Buscar nomes
-  const mats=Object.keys(contagem);
+  const mats=[...new Set(Object.values(contagem).map(v=>v.matricula))];
   if(!mats.length) return;
   const {data:matData}=await sb.from('matriculas').select('matricula,nome_leiturista').in('matricula',mats);
-  (matData||[]).forEach(r=>{if(contagem[r.matricula]) contagem[r.matricula].nome=r.nome_leiturista;});
+  (matData||[]).forEach(r=>{
+    Object.values(contagem).forEach(v=>{if(v.matricula===r.matricula) v.nome=r.nome_leiturista;});
+  });
   // Disparar
-  for(const [mat,v] of Object.entries(contagem)){
+  for(const [chave,v] of Object.entries(contagem)){
     if(v.qtd<qtdGatilho) continue;
     const multiplos=Math.floor(v.qtd/qtdGatilho);
     for(let m=1;m<=multiplos;m++){
       const valorDisp=m*qtdGatilho;
-      // Verificar se já disparou
+      // Verificar se já disparou (inclui base na chave)
       const {data:ja}=await sb.from('tratativas_disparos').select('id')
-        .eq('matricula',mat).eq('mes_ref',mesRef).eq('tipo','erros').eq('valor_disparado',valorDisp).single();
+        .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros').eq('valor_disparado',valorDisp).single();
       if(ja) continue;
       // Buscar supervisor da base
       const {data:sup}=await sb.from('usuarios_portal').select('id,nome,email')
@@ -530,13 +532,13 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
       // Salvar tratativa
       const {data:trat}=await sb.from('tratativas').insert({
         tipo:'erros', automatica:true, mes_ref:mesRef,
-        matricula:mat, nome_leiturista:v.nome||mat, base:v.base,
+        matricula:v.matricula, nome_leiturista:v.nome||v.matricula, base:v.base,
         supervisor_id:sup.id, supervisor_email:sup.email, supervisor_nome:sup.nome,
         detalhe:`${v.qtd} erro(s) de leitura em ${mesRef} (gatilho: ${valorDisp})`,
         prazo_resposta:prazoDb,
       }).select().single();
       // Registrar disparo
-      await sb.from('tratativas_disparos').insert({matricula:mat,mes_ref:mesRef,tipo:'erros',valor_disparado:valorDisp});
+      await sb.from('tratativas_disparos').insert({matricula:v.matricula,mes_ref:mesRef,tipo:'erros',valor_disparado:valorDisp});
       // Enviar email
       const link=`${location.origin}/controles/tratativas/responder.html?id=${trat?.id}`;
       await enviarEmailTratativa(sup.email,
@@ -549,7 +551,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
             <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px">
               <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500;width:35%">Base</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.base||'—'}</td></tr>
               <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Tipo</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">Erros de leitura</td></tr>
-              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Ocorrência</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.qtd} erro(s) — leiturista ${v.nome||mat} — ${mesRef}</td></tr>
+              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Ocorrência</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.qtd} erro(s) — leiturista ${v.nome||v.matricula} — ${mesRef}</td></tr>
             </table>
             <p style="margin-bottom:16px">Por favor, registre a tratativa até <strong>${prazoStr}</strong> clicando no botão abaixo.</p>
             <div style="text-align:center;margin-bottom:20px"><a href="${link}" style="background:#2d7a2d;color:#fff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">REGISTRAR TRATATIVA</a></div>
