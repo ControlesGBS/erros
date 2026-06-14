@@ -406,8 +406,8 @@ async function processarErros(){
       // Converter mm/yyyy para yyyy-mm-01
       const parseMes=s=>{
         if(!s) return null;
-        const m=String(s).match(/^(\d{2})\/(\d{4})$/);
-        return m?`${m[2]}-${m[1]}-01`:null;
+        const m=String(s).match(/^(\d{1,2})\/(\d{4})$/);
+        return m?`${m[2]}-${m[1].padStart(2,'0')}-01`:null;
       };
       const rz=String(ul).padStart(8,'0').slice(0,2);
       const lc=String(ul).padStart(8,'0').slice(2,6);
@@ -484,7 +484,7 @@ async function enviarEmailTratativa(para, assunto, corpo){
   try{
     await fetch('https://ndwivbhqglpnfyqwjbzu.supabase.co/functions/v1/enviar-email',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer sb_publishable_IhuNziyT5VYrMKRixcPGjA_LAn5ku-7'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kd2l2YmhxZ2xwbmZ5cXdqYnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MjMwNzksImV4cCI6MjA5NTk5OTA3OX0.uYzp_BlsQlgMp48k10gpSQdBReXJToGuVAkh38i3ABg'},
       body:JSON.stringify({para,assunto,corpo})
     });
   }catch(e){console.error('Erro email:',e);}
