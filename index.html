@@ -518,7 +518,8 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
       const valorDisp=m*qtdGatilho;
       // Verificar se já disparou (inclui base na chave)
       const {data:ja}=await sb.from('tratativas_disparos').select('id')
-        .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros').eq('valor_disparado',valorDisp).single();
+        .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros')
+        .eq('valor_disparado',valorDisp).eq('base',v.base||'').single();
       if(ja) continue;
       // Buscar supervisor da base
       const {data:sup}=await sb.from('usuarios_portal').select('id,nome,email')
@@ -538,7 +539,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
         prazo_resposta:prazoDb,
       }).select().single();
       // Registrar disparo
-      await sb.from('tratativas_disparos').insert({matricula:v.matricula,mes_ref:mesRef,tipo:'erros',valor_disparado:valorDisp});
+      await sb.from('tratativas_disparos').insert({matricula:v.matricula,mes_ref:mesRef,tipo:'erros',valor_disparado:valorDisp,base:v.base||''});
       // Enviar email
       const link=`${location.origin}/controles/tratativas/responder.html?id=${trat?.id}`;
       await enviarEmailTratativa(sup.email,
