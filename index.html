@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size:13px}
@@ -75,7 +76,7 @@ td.td-left{text-align:left}
 </div>
 
 <!-- PAINEL -->
-<div class="pag ativo" id="pag-painel">
+<div class="pag ativo" id="pag-painel" style="display:flex;flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
   <div class="filtros">
     <div><label>Mês do Erro</label>
       <select id="f-mes" onchange="aplicarFiltros()"><option value="">Todos</option></select>
@@ -113,12 +114,15 @@ td.td-left{text-align:left}
     </div>
   </div>
 
-  <div class="twrap">
+  <div class="twrap" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
     <div class="twrap-hdr">
       <span>Registros de Erro</span>
-      <span id="twrap-count" style="font-size:11px;color:#90c090"></span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="twrap-count" style="font-size:11px;color:#90c090"></span>
+        <button onclick="downloadExcel()" style="background:#2d7a2d;border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⬇ Excel</button>
+      </div>
     </div>
-    <div class="twrap-body">
+    <div class="twrap-body" style="flex:1;overflow-y:auto;overflow-x:auto;">
       <table>
         <thead><tr>
           <th>Instalação</th>
@@ -164,6 +168,7 @@ let todosErros=[];
 let dadosFiltrados=[];
 let pagAtual=1;
 const POR_PAG=50;
+Chart.register(ChartDataLabels);
 let charts={};
 
 function irPag(id,btn){
@@ -263,6 +268,29 @@ function atualizarKpis(){
   document.getElementById('kpi-rzs').textContent=new Set(dadosFiltrados.map(r=>r.rz).filter(Boolean)).size;
 }
 
+function downloadExcel(){
+  if(!dadosFiltrados||!dadosFiltrados.length){alert('Nenhum dado para exportar.');return;}
+  const rows=dadosFiltrados.map(r=>{
+    const[aa,mm]=(r.mes_erro||'').split('-');
+    const[aa2,mm2]=(r.mes_provavel||'').split('-');
+    return {
+      'Instalação':r.instalacao||'—',
+      'UL':r.ul||'—',
+      'RZ':r.rz||'—',
+      'Mês Provável':mm2&&aa2?`${mm2}/${aa2}`:(r.mes_provavel||'—'),
+      'Mês Erro':mm&&aa?`${mm}/${aa}`:(r.mes_erro||'—'),
+      'Matrícula':r.matricula||'—',
+      'Leiturista':r.nome||r.matricula||'—',
+      'Cidade':r.cidade||'—',
+      'Base':r.base||'—'
+    };
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Erros');
+  XLSX.writeFile(wb,`erros_leitura_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 
 function atualizarGraficos(){
@@ -274,7 +302,7 @@ function atualizarGraficos(){
   charts['base']=new Chart(document.getElementById('chart-base'),{
     type:'bar',
     data:{labels:basLabels,datasets:[{data:basLabels.map(k=>porBase[k]),backgroundColor:'#2d7a2d',borderRadius:3}]},
-    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},maintainAspectRatio:true,responsive:true}
+    options:{plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:10},color:'#1a4a1a',formatter:v=>v}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},maintainAspectRatio:true,responsive:true}
   });
 
   // --- Erros por Mês ---
@@ -293,7 +321,7 @@ function atualizarGraficos(){
   charts['mes']=new Chart(document.getElementById('chart-mes'),{
     type:'bar',
     data:{labels:mesLabels,datasets:[{data:mesLabels.map(k=>porMes[k]),backgroundColor:'#1a6a8a',borderRadius:3}]},
-    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},maintainAspectRatio:true,responsive:true}
+    options:{plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:10},color:'#1a4a1a',formatter:v=>v}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},maintainAspectRatio:true,responsive:true}
   });
 
   // --- Top 15 Leituristas ---
