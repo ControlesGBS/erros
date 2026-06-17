@@ -189,7 +189,7 @@ async function carregarDados(){
     .select('instalacao,ul,rz,mes_provavel,mes_erro,matricula,cidade,base')
     .order('mes_erro',{ascending:false})
     .order('base');
-  if(PERFIL_BASE) q=q.eq('base',PERFIL_BASE);
+  if(PERFIL_BASE) q=q.filter('base','ilike',PERFIL_BASE);
   const {data:erros,error}=await q;
   if(error){console.error(error);return;}
 
@@ -250,7 +250,7 @@ function aplicarFiltros(){
   dadosFiltrados=todosErros.filter(r=>{
     if(mes && r.mes_erro!==mes) return false;
     if(rz && r.rz!==rz) return false;
-    if(base && r.base!==base) return false;
+    if(base && (r.base||'').toLowerCase()!==base.toLowerCase()) return false;
     if(mat && r.matricula!==mat) return false;
     return true;
   });
