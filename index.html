@@ -22,6 +22,7 @@ body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size
 .nav button:hover:not(.ativo){background:#1a4a1a}
 .pag{display:none;padding:16px 20px}
 .pag.ativo{display:block}
+#pag-painel.ativo,#pag-reclamacoes.ativo{display:flex}
 .filtros{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:12px 16px;margin-bottom:10px}
 .filtros label{font-size:11px;color:#4a7a4a;display:block;margin-bottom:3px}
 .filtros select{border:0.5px solid #a0c8a0;border-radius:5px;padding:4px 8px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:30px}
@@ -77,7 +78,7 @@ td.td-left{text-align:left}
 </div>
 
 <!-- PAINEL -->
-<div class="pag ativo" id="pag-painel" style="display:flex;flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
+<div class="pag ativo" id="pag-painel" style="flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
   <div class="filtros">
     <div><label>Mês do Erro</label>
       <select id="f-mes" onchange="aplicarFiltros()"><option value="">Todos</option></select>
@@ -144,7 +145,7 @@ td.td-left{text-align:left}
 </div>
 
 <!-- RECLAMAÇÕES -->
-<div class="pag" id="pag-reclamacoes" style="display:flex;flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
+<div class="pag" id="pag-reclamacoes" style="flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
   <div class="filtros">
     <div><label>Mês</label>
       <select id="fr-mes" onchange="aplicarFiltrosReclamacoes()"><option value="">Todos</option></select>
