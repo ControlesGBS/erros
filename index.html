@@ -72,6 +72,7 @@ td.td-left{text-align:left}
 <div class="nav">
   <button onclick="location.href='https://gbsservicos.com/controles/teste/index.html'" title="Voltar ao Portal" style="font-size:16px;padding:6px 12px">🏠</button>
   <button class="ativo" onclick="irPag('painel',this)">Painel</button>
+  <button onclick="irPag('reclamacoes',this)">Reclamações</button>
   <button onclick="irPag('admin',this)">Administração</button>
 </div>
 
@@ -142,6 +143,58 @@ td.td-left{text-align:left}
   </div>
 </div>
 
+<!-- RECLAMAÇÕES -->
+<div class="pag" id="pag-reclamacoes" style="display:flex;flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
+  <div class="filtros">
+    <div><label>Mês</label>
+      <select id="fr-mes" onchange="aplicarFiltrosReclamacoes()"><option value="">Todos</option></select>
+    </div>
+    <div><label>Base</label>
+      <select id="fr-base" onchange="aplicarFiltrosReclamacoes()"><option value="">Todas</option></select>
+    </div>
+    <div><label>Leiturista</label>
+      <select id="fr-mat" onchange="aplicarFiltrosReclamacoes()"><option value="">Todos</option></select>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Total de Reclamações</div><div class="kpi-value" id="kpir-total">—</div></div>
+    <div class="kpi"><div class="kpi-label">Bases Afetadas</div><div class="kpi-value" id="kpir-bases">—</div></div>
+    <div class="kpi"><div class="kpi-label">Leituristas Afetados</div><div class="kpi-value" id="kpir-leit">—</div></div>
+  </div>
+
+  <div class="graficos-row">
+    <div class="grafico-box">
+      <h4>Top 15 Leituristas — Reclamações</h4>
+      <canvas id="chart-reclama-leit"></canvas>
+    </div>
+  </div>
+
+  <div class="twrap" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="twrap-hdr">
+      <span>Registros de Reclamação</span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="twrap-count-recl" style="font-size:11px;color:#90c090"></span>
+        <button onclick="downloadExcelReclamacoes()" style="background:#2d7a2d;border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⬇ Excel</button>
+      </div>
+    </div>
+    <div class="twrap-body" style="flex:1;overflow-y:auto;overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>Instalação</th>
+          <th>Matrícula</th>
+          <th style="text-align:left;min-width:140px">Leiturista</th>
+          <th style="text-align:left;min-width:160px">Motivo</th>
+          <th>Data</th>
+          <th>Base</th>
+        </tr></thead>
+        <tbody id="tbody-reclamacoes"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="paginacao-recl"></div>
+  </div>
+</div>
+
 <!-- ADMIN -->
 <div class="pag" id="pag-admin">
   <div class="admin-grid">
@@ -155,6 +208,17 @@ td.td-left{text-align:left}
       <input type="file" accept=".xlsx" id="inp-erros" style="display:none" onchange="selecionarErros(this)">
       <button class="btn" id="btn-erros" onclick="processarErros()" disabled>Processar e salvar</button>
       <div class="progresso" id="prog-erros"></div>
+    </div>
+    <div class="upload-box">
+      <h3>📋 Upload — Reclamações</h3>
+      <p>Planilha com Instalação, Matrícula e Motivo. O mês é identificado pela coluna <strong>Data</strong>.</p>
+      <label class="drop-area" for="inp-reclamacoes">
+        <div class="icone">📂</div>
+        <p id="tag-reclamacoes">Clique ou arraste o arquivo xlsx</p>
+      </label>
+      <input type="file" accept=".xlsx" id="inp-reclamacoes" style="display:none" onchange="selecionarReclamacoes(this)">
+      <button class="btn" id="btn-reclamacoes" onclick="processarReclamacoes()" disabled>Processar e salvar</button>
+      <div class="progresso" id="prog-reclamacoes"></div>
     </div>
   </div>
 </div>
@@ -170,6 +234,10 @@ let pagAtual=1;
 const POR_PAG=50;
 Chart.register(ChartDataLabels);
 let charts={};
+
+let todosReclamacoes=[];
+let dadosFiltradosReclamacoes=[];
+let pagAtualRecl=1;
 
 function irPag(id,btn){
   document.querySelectorAll('.pag').forEach(p=>p.classList.remove('ativo'));
@@ -395,6 +463,259 @@ function renderTabela(){
 }
 
 function irPagina(p){pagAtual=p;renderTabela();window.scrollTo(0,0);}
+
+// ── RECLAMAÇÕES — carregar, filtrar, exibir ─────────────────────
+async function carregarReclamacoes(){
+  document.getElementById('tbody-reclamacoes').innerHTML=
+    '<tr><td colspan="6" class="status-msg">Carregando...</td></tr>';
+
+  const {data:recl,error}=await sb.from('reclamacoes')
+    .select('instalacao,matricula,motivo,data,mes_ref')
+    .order('data',{ascending:false});
+  if(error){console.error(error);return;}
+
+  // Buscar nome e base dos leituristas
+  const mats=[...new Set((recl||[]).map(r=>r.matricula).filter(Boolean))];
+  let matMap={};
+  if(mats.length){
+    const {data:matData}=await sb.from('matriculas')
+      .select('matricula,nome_leiturista,base').in('matricula',mats);
+    (matData||[]).forEach(r=>matMap[r.matricula]={nome:r.nome_leiturista,base:r.base});
+  }
+
+  todosReclamacoes=(recl||[]).map(r=>({
+    ...r,
+    nome:matMap[r.matricula]?.nome||'—',
+    base:matMap[r.matricula]?.base||'—'
+  }));
+
+  if(PERFIL_BASE) todosReclamacoes=todosReclamacoes.filter(r=>(r.base||'').toLowerCase()===PERFIL_BASE.toLowerCase());
+
+  popularFiltrosReclamacoes();
+  aplicarFiltrosReclamacoes();
+}
+
+function popularFiltrosReclamacoes(){
+  const meses=[...new Set(todosReclamacoes.map(r=>r.mes_ref).filter(Boolean))].sort().reverse();
+  const bases=[...new Set(todosReclamacoes.map(r=>r.base).filter(Boolean))].sort();
+  const mats=[...new Set(todosReclamacoes.map(r=>r.matricula).filter(Boolean))].sort();
+
+  const fMes=document.getElementById('fr-mes');
+  const fBase=document.getElementById('fr-base');
+  const fMat=document.getElementById('fr-mat');
+
+  fMes.innerHTML='<option value="">Todos</option>';
+  meses.forEach(m=>{
+    const [aa,mm]=m.split('-');
+    fMes.innerHTML+=`<option value="${m}">${mm}/${aa}</option>`;
+  });
+
+  if(!PERFIL_BASE){
+    fBase.innerHTML='<option value="">Todas</option>';
+    bases.forEach(b=>fBase.innerHTML+=`<option value="${b}">${b}</option>`);
+  } else {
+    fBase.closest('div').style.display='none';
+  }
+
+  fMat.innerHTML='<option value="">Todos</option>';
+  mats.forEach(m=>{
+    const nome=todosReclamacoes.find(r=>r.matricula===m)?.nome||m;
+    fMat.innerHTML+=`<option value="${m}">${m} — ${nome}</option>`;
+  });
+}
+
+function aplicarFiltrosReclamacoes(){
+  const mes=document.getElementById('fr-mes').value;
+  const base=PERFIL_BASE||document.getElementById('fr-base').value;
+  const mat=document.getElementById('fr-mat').value;
+
+  dadosFiltradosReclamacoes=todosReclamacoes.filter(r=>{
+    if(mes && r.mes_ref!==mes) return false;
+    if(base && (r.base||'').toLowerCase()!==base.toLowerCase()) return false;
+    if(mat && r.matricula!==mat) return false;
+    return true;
+  });
+
+  pagAtualRecl=1;
+  atualizarKpisReclamacoes();
+  atualizarGraficoReclamacoes();
+  renderTabelaReclamacoes();
+}
+
+function atualizarKpisReclamacoes(){
+  document.getElementById('kpir-total').textContent=dadosFiltradosReclamacoes.length.toLocaleString('pt-BR');
+  document.getElementById('kpir-bases').textContent=new Set(dadosFiltradosReclamacoes.map(r=>r.base).filter(Boolean)).size;
+  document.getElementById('kpir-leit').textContent=new Set(dadosFiltradosReclamacoes.map(r=>r.matricula).filter(Boolean)).size;
+}
+
+function atualizarGraficoReclamacoes(){
+  destroyChart('reclama-leit');
+  const porLeit={};
+  dadosFiltradosReclamacoes.forEach(r=>{
+    const k=r.matricula||'—';
+    if(!porLeit[k]) porLeit[k]={qtd:0,nome:r.nome||r.matricula||'—'};
+    porLeit[k].qtd++;
+  });
+  const leitSort=Object.entries(porLeit).sort((a,b)=>b[1].qtd-a[1].qtd).slice(0,15);
+  charts['reclama-leit']=new Chart(document.getElementById('chart-reclama-leit'),{
+    type:'bar',
+    data:{
+      labels:leitSort.map(([mat])=>mat),
+      datasets:[{data:leitSort.map(([,v])=>v.qtd),backgroundColor:'#a32d2d',borderRadius:3}]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:([ctx])=>{
+        const mat=leitSort[ctx.dataIndex][0];
+        return `${mat} — ${porLeit[mat].nome}`;
+      }}}},
+      scales:{x:{ticks:{font:{size:10}},beginAtZero:true},y:{ticks:{font:{size:10}}}},
+      maintainAspectRatio:true,responsive:true
+    }
+  });
+}
+
+function renderTabelaReclamacoes(){
+  const inicio=(pagAtualRecl-1)*POR_PAG;
+  const pagina=dadosFiltradosReclamacoes.slice(inicio,inicio+POR_PAG);
+  document.getElementById('twrap-count-recl').textContent=`${dadosFiltradosReclamacoes.length} registros`;
+
+  if(!pagina.length){
+    document.getElementById('tbody-reclamacoes').innerHTML=
+      '<tr><td colspan="6" class="status-msg">Nenhum registro encontrado.</td></tr>';
+    document.getElementById('paginacao-recl').innerHTML='';
+    return;
+  }
+
+  document.getElementById('tbody-reclamacoes').innerHTML=pagina.map(r=>{
+    const dataFmt=r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+    return `<tr>
+      <td>${r.instalacao||'—'}</td>
+      <td>${r.matricula||'—'}</td>
+      <td class="td-left">${r.nome||'—'}</td>
+      <td class="td-left">${r.motivo||'—'}</td>
+      <td>${dataFmt}</td>
+      <td>${r.base||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const totalPag=Math.ceil(dadosFiltradosReclamacoes.length/POR_PAG);
+  document.getElementById('paginacao-recl').innerHTML=`
+    <span>${inicio+1}–${Math.min(inicio+POR_PAG,dadosFiltradosReclamacoes.length)} de ${dadosFiltradosReclamacoes.length}</span>
+    <div style="display:flex;gap:4px">
+      <button onclick="irPaginaRecl(1)" ${pagAtualRecl===1?'disabled':''}>«</button>
+      <button onclick="irPaginaRecl(${pagAtualRecl-1})" ${pagAtualRecl===1?'disabled':''}>‹</button>
+      <span style="padding:3px 8px;font-weight:500">${pagAtualRecl} / ${totalPag}</span>
+      <button onclick="irPaginaRecl(${pagAtualRecl+1})" ${pagAtualRecl===totalPag?'disabled':''}>›</button>
+      <button onclick="irPaginaRecl(${totalPag})" ${pagAtualRecl===totalPag?'disabled':''}>»</button>
+    </div>`;
+}
+
+function irPaginaRecl(p){pagAtualRecl=p;renderTabelaReclamacoes();window.scrollTo(0,0);}
+
+function downloadExcelReclamacoes(){
+  if(!dadosFiltradosReclamacoes||!dadosFiltradosReclamacoes.length){alert('Nenhum dado para exportar.');return;}
+  const rows=dadosFiltradosReclamacoes.map(r=>({
+    'Instalação':r.instalacao||'—',
+    'Matrícula':r.matricula||'—',
+    'Leiturista':r.nome||r.matricula||'—',
+    'Motivo':r.motivo||'—',
+    'Data':r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'—',
+    'Base':r.base||'—'
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Reclamações');
+  XLSX.writeFile(wb,`reclamacoes_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── RECLAMAÇÕES — upload ────────────────────────────────────────
+let fileReclamacoes=null;
+function selecionarReclamacoes(inp){
+  fileReclamacoes=inp.files[0]; if(!fileReclamacoes) return;
+  document.getElementById('tag-reclamacoes').textContent=fileReclamacoes.name;
+  document.getElementById('btn-reclamacoes').disabled=false;
+}
+
+async function processarReclamacoes(){
+  if(!fileReclamacoes) return;
+  const prog=document.getElementById('prog-reclamacoes');
+  const btn=document.getElementById('btn-reclamacoes');
+  btn.disabled=true; prog.className='progresso'; prog.textContent='Lendo arquivo...';
+  try{
+    const buf=await fileReclamacoes.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array',cellDates:false});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+
+    if(!rows.length){prog.textContent='Planilha vazia.';btn.disabled=false;return;}
+
+    const col=(row,nomes)=>{
+      for(const n of nomes){
+        if(row[n]!=null) return row[n];
+      }
+      return null;
+    };
+
+    const parseData=v=>{
+      if(v==null) return null;
+      if(typeof v==='number'){
+        const dt=new Date(Math.round((v-25569)*86400*1000));
+        const y=dt.getUTCFullYear();
+        const m=String(dt.getUTCMonth()+1).padStart(2,'0');
+        const d=String(dt.getUTCDate()).padStart(2,'0');
+        return `${y}-${m}-${d}`;
+      }
+      const s=String(v).replace(/'/g,'').trim();
+      if(s.includes('/')){
+        const pts=s.split('/');
+        if(pts.length===3){
+          const [d,m,a]=pts;
+          return `${a.length===4?a:'20'+a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+        }
+      } else if(s.match(/^\d{4}-\d{2}-\d{2}$/)){
+        return s;
+      }
+      return null;
+    };
+
+    const recs=rows.map(row=>{
+      const instalacao=col(row,['Instalacao','Instalação','INSTALACAO']);
+      const matricula=col(row,['Matricula','Matrícula','MATRICULA']);
+      const motivo=col(row,['Motivo','MOTIVO']);
+      const dataV=col(row,['Data','DATA','data']);
+      const data=parseData(dataV);
+      if(!instalacao||!matricula||!data) return null;
+      return {
+        instalacao:String(instalacao).trim(),
+        matricula:String(matricula).trim(),
+        motivo:motivo?String(motivo).trim():null,
+        data,
+        mes_ref:data.slice(0,7)+'-01'
+      };
+    }).filter(Boolean);
+
+    if(!recs.length){prog.textContent='Nenhum dado válido encontrado (verifique colunas Instalação, Matrícula, Motivo e Data).';btn.disabled=false;return;}
+
+    prog.textContent='Salvando...';
+    const LOTE=200;
+    for(let i=0;i<recs.length;i+=LOTE){
+      const {error}=await sb.from('reclamacoes').insert(recs.slice(i,i+LOTE));
+      if(error) throw error;
+      prog.textContent=`Salvando... ${Math.min(i+LOTE,recs.length)}/${recs.length}`;
+    }
+
+    prog.className='progresso ok';
+    prog.textContent=`✓ ${recs.length} reclamações salvas!`;
+    await carregarReclamacoes();
+  }catch(e){
+    console.error(e);
+    prog.className='progresso erro';
+    prog.textContent='Erro ao processar: '+(e.message||e);
+  } finally {
+    btn.disabled=false;
+  }
+}
 
 // ── UPLOAD ───────────────────────────────────────────────────────
 let fileErros=null;
@@ -627,6 +948,7 @@ let PERFIL_BASE=null, PERFIL_TIPO=null;
   }
 
   await carregarDados();
+  await carregarReclamacoes();
 })();
 </script>
 <script src="/controles/auto-logout.js"></script>
