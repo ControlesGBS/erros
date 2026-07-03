@@ -262,7 +262,7 @@ async function carregarDados(){
   const {data:erros,error}=await q;
   if(error){console.error(error);return;}
 
-  // Buscar nomes dos leituristas
+  // Buscar nomes dos leituristas (matrícula é exclusiva, não repete entre bases)
   const mats=[...new Set((erros||[]).map(r=>r.matricula).filter(Boolean))];
   let matMap={};
   if(mats.length){
@@ -846,21 +846,23 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
   const {data:cfg}=await sb.from('tratativas_config').select('*').single();
   if(!cfg||!cfg.erros_ativo||cfg.erros_email_pausado) return;
   const qtdGatilho=cfg.erros_qtd||1;
-  // Agrupar erros por matricula+base
+
+  // Buscar nome e base REAL do leiturista (matrícula é exclusiva — a base certa é a da tabela matriculas,
+  // não a base geográfica da instalação, que pode divergir quando ele lê UL de área vizinha)
+  const matsIniciais=[...new Set(recsEnriq.map(r=>r.matricula).filter(Boolean))];
+  if(!matsIniciais.length) return;
+  const {data:matData}=await sb.from('matriculas').select('matricula,nome_leiturista,base').in('matricula',matsIniciais);
+  const matInfo={};
+  (matData||[]).forEach(r=>{matInfo[r.matricula]={nome:r.nome_leiturista,base:r.base};});
+
+  // Agrupar erros por matrícula (chave única)
   const contagem={};
   recsEnriq.forEach(r=>{
     if(!r.matricula) return;
-    const chave=`${r.matricula}|${r.base||''}`;
-    if(!contagem[chave]) contagem[chave]={qtd:0,base:r.base,matricula:r.matricula,nome:null,registros:[]};
-    contagem[chave].qtd++;
-    contagem[chave].registros.push({instalacao:r.instalacao,ul:r.ul});
-  });
-  // Buscar nomes
-  const mats=[...new Set(Object.values(contagem).map(v=>v.matricula))];
-  if(!mats.length) return;
-  const {data:matData}=await sb.from('matriculas').select('matricula,nome_leiturista').in('matricula',mats);
-  (matData||[]).forEach(r=>{
-    Object.values(contagem).forEach(v=>{if(v.matricula===r.matricula) v.nome=r.nome_leiturista;});
+    const info=matInfo[r.matricula]||{};
+    if(!contagem[r.matricula]) contagem[r.matricula]={qtd:0,base:info.base||r.base,matricula:r.matricula,nome:info.nome||null,registros:[]};
+    contagem[r.matricula].qtd++;
+    contagem[r.matricula].registros.push({instalacao:r.instalacao,ul:r.ul});
   });
   // Disparar
   for(const [chave,v] of Object.entries(contagem)){
