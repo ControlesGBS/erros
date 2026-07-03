@@ -851,8 +851,9 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
   recsEnriq.forEach(r=>{
     if(!r.matricula) return;
     const chave=`${r.matricula}|${r.base||''}`;
-    if(!contagem[chave]) contagem[chave]={qtd:0,base:r.base,matricula:r.matricula,nome:null};
+    if(!contagem[chave]) contagem[chave]={qtd:0,base:r.base,matricula:r.matricula,nome:null,registros:[]};
     contagem[chave].qtd++;
+    contagem[chave].registros.push({instalacao:r.instalacao,ul:r.ul});
   });
   // Buscar nomes
   const mats=[...new Set(Object.values(contagem).map(v=>v.matricula))];
@@ -867,6 +868,10 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
     const multiplos=Math.floor(v.qtd/qtdGatilho);
     for(let m=1;m<=multiplos;m++){
       const valorDisp=m*qtdGatilho;
+      // Registros que compõem esse disparo específico
+      const lote=v.registros.slice((m-1)*qtdGatilho,m*qtdGatilho);
+      const instalacoesTxt=[...new Set(lote.map(r=>r.instalacao).filter(Boolean))].join(', ')||'—';
+      const ulsTxt=[...new Set(lote.map(r=>r.ul).filter(Boolean))].join(', ')||'—';
       // Verificar se já disparou (inclui base na chave)
       const {data:ja}=await sb.from('tratativas_disparos').select('id')
         .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros')
@@ -886,7 +891,8 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
         tipo:'erros', automatica:true, mes_ref:mesRef,
         matricula:v.matricula, nome_leiturista:v.nome||v.matricula, base:v.base,
         supervisor_id:sup.id, supervisor_email:sup.email, supervisor_nome:sup.nome,
-        detalhe:`${v.qtd} erro(s) de leitura em ${mesRef} (gatilho: ${valorDisp})`,
+        detalhe:`${v.qtd} erro(s) de leitura em ${mesRef}`,
+        instalacoes:instalacoesTxt, uls:ulsTxt,
         prazo_resposta:prazoDb,
       }).select().single();
       // Registrar disparo
@@ -904,6 +910,8 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
               <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500;width:35%">Base</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.base||'—'}</td></tr>
               <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Tipo</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">Erros de leitura</td></tr>
               <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Ocorrência</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.qtd} erro(s) — leiturista ${v.nome||v.matricula} — ${mesRef}</td></tr>
+              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Instalação</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${instalacoesTxt}</td></tr>
+              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">UL</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${ulsTxt}</td></tr>
             </table>
             <p style="margin-bottom:16px">Por favor, registre a tratativa até <strong>${prazoStr}</strong> clicando no botão abaixo.</p>
             <div style="text-align:center;margin-bottom:20px"><a href="${link}" style="background:#2d7a2d;color:#fff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">REGISTRAR TRATATIVA</a></div>
