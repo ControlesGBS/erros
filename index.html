@@ -932,8 +932,8 @@ let PERFIL_BASE=null, PERFIL_TIPO=null;
     PERFIL_TIPO='gestor'; PERFIL_BASE=null;
   }
 
-  // Esconder admin se não for gestor
-  if(PERFIL_TIPO!=='gestor'){
+  // Esconder admin se não for gestor nem supervisor_geral
+  if(!['gestor','supervisor_geral'].includes(PERFIL_TIPO)){
     document.querySelectorAll('.nav button').forEach(btn=>{
       if(btn.textContent.trim()==='Administração') btn.style.display='none';
     });
