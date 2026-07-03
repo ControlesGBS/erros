@@ -853,7 +853,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
   if(!matsIniciais.length) return;
   const {data:matData}=await sb.from('matriculas').select('matricula,nome_leiturista,base').in('matricula',matsIniciais);
   const matInfo={};
-  (matData||[]).forEach(r=>{matInfo[r.matricula]={nome:r.nome_leiturista,base:r.base};});
+  (matData||[]).forEach(r=>{matInfo[r.matricula]={nome:r.nome_leiturista,base:(r.base||'').toUpperCase()||null};});
 
   // Agrupar erros por matrícula (chave única)
   const contagem={};
@@ -879,9 +879,9 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
         .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros')
         .eq('valor_disparado',valorDisp).eq('base',v.base||'').single();
       if(ja) continue;
-      // Buscar supervisor da base
+      // Buscar supervisor da base (ilike pois "matriculas" guarda em Title Case e "usuarios_portal" em CAIXA ALTA)
       const {data:sup}=await sb.from('usuarios_portal').select('id,nome,email')
-        .eq('base',v.base).eq('perfil','supervisor').eq('ativo',true).single();
+        .ilike('base',v.base||'').eq('perfil','supervisor').eq('ativo',true).single();
       if(!sup) continue;
       // Calcular prazo
       const prazo=new Date();
