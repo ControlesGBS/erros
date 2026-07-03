@@ -864,64 +864,66 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
     contagem[r.matricula].qtd++;
     contagem[r.matricula].registros.push({instalacao:r.instalacao,ul:r.ul});
   });
-  // Disparar
-  for(const [chave,v] of Object.entries(contagem)){
-    if(v.qtd<qtdGatilho) continue;
-    const multiplos=Math.floor(v.qtd/qtdGatilho);
-    for(let m=1;m<=multiplos;m++){
-      const valorDisp=m*qtdGatilho;
-      // Registros que compõem esse disparo específico
-      const lote=v.registros.slice((m-1)*qtdGatilho,m*qtdGatilho);
-      const instalacoesTxt=[...new Set(lote.map(r=>r.instalacao).filter(Boolean))].join(', ')||'—';
-      const ulsTxt=[...new Set(lote.map(r=>r.ul).filter(Boolean))].join(', ')||'—';
-      // Verificar se já disparou (inclui base na chave)
-      const {data:ja}=await sb.from('tratativas_disparos').select('id')
-        .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros')
-        .eq('valor_disparado',valorDisp).eq('base',v.base||'').single();
-      if(ja) continue;
-      // Buscar supervisor da base (ilike pois "matriculas" guarda em Title Case e "usuarios_portal" em CAIXA ALTA)
-      const {data:sup}=await sb.from('usuarios_portal').select('id,nome,email')
-        .ilike('base',v.base||'').eq('perfil','supervisor').eq('ativo',true).single();
-      if(!sup) continue;
-      // Calcular prazo
-      const prazo=new Date();
-      prazo.setDate(prazo.getDate()+(cfg.prazo_dias||5));
-      const prazoStr=prazo.toLocaleDateString('pt-BR');
-      const prazoDb=prazo.toISOString().split('T')[0];
-      // Salvar tratativa
-      const {data:trat}=await sb.from('tratativas').insert({
-        tipo:'erros', automatica:true, mes_ref:mesRef,
-        matricula:v.matricula, nome_leiturista:v.nome||v.matricula, base:v.base,
-        supervisor_id:sup.id, supervisor_email:sup.email, supervisor_nome:sup.nome,
-        detalhe:`${v.qtd} erro(s) de leitura em ${mesRef}`,
-        instalacoes:instalacoesTxt, uls:ulsTxt,
-        prazo_resposta:prazoDb,
-      }).select().single();
-      // Registrar disparo
-      await sb.from('tratativas_disparos').insert({matricula:v.matricula,mes_ref:mesRef,tipo:'erros',valor_disparado:valorDisp,base:v.base||''});
-      // Enviar email
-      const link=`${location.origin}/controles/tratativas/responder.html?id=${trat?.id}`;
-      await enviarEmailTratativa(sup.email,
-        'Gestão de Controles - Ação atribuída a você',
-        `<div style="font-family:system-ui,sans-serif;max-width:500px;margin:0 auto;color:#1a2a1a">
-          <div style="background:#1a4a1a;padding:14px 20px;border-radius:8px 8px 0 0"><span style="color:#c8e8c8;font-weight:500;font-size:15px">GBS Serviços — Gestão de Controles</span></div>
-          <div style="background:#fff;border:0.5px solid #c0dcc0;padding:20px;border-radius:0 0 8px 8px">
-            <p style="margin-bottom:14px">Olá, <strong>${sup.nome}</strong>!</p>
-            <p style="margin-bottom:14px">Uma ocorrência foi identificada e requer sua atenção.</p>
-            <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px">
-              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500;width:35%">Base</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.base||'—'}</td></tr>
-              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Tipo</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">Erros de leitura</td></tr>
-              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Ocorrência</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.qtd} erro(s) — leiturista ${v.nome||v.matricula} — ${mesRef}</td></tr>
-              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Instalação</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${instalacoesTxt}</td></tr>
-              <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">UL</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${ulsTxt}</td></tr>
-            </table>
-            <p style="margin-bottom:16px">Por favor, registre a tratativa até <strong>${prazoStr}</strong> clicando no botão abaixo.</p>
-            <div style="text-align:center;margin-bottom:20px"><a href="${link}" style="background:#2d7a2d;color:#fff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">REGISTRAR TRATATIVA</a></div>
-            <p style="font-size:11px;color:#4a7a4a;border-top:0.5px solid #c0dcc0;padding-top:12px">At.te<br><strong>Gestão de Controles</strong></p>
-          </div>
-        </div>`
-      );
-    }
+  // Disparar — só notifica instalações/erros que ainda não foram avisados (matrícula + instalação + mês)
+  for(const [matricula,v] of Object.entries(contagem)){
+    if(v.qtd<qtdGatilho) continue; // ainda não atingiu o mínimo configurado no mês
+
+    // Verificar quais instalações desse leiturista já foram notificadas neste mês
+    const {data:jaData}=await sb.from('tratativas_disparos').select('instalacao')
+      .eq('matricula',v.matricula).eq('mes_ref',mesRef).eq('tipo','erros');
+    const jaSet=new Set((jaData||[]).map(d=>d.instalacao));
+
+    // Erros novos: instalações que ainda não geraram notificação
+    const novos=v.registros.filter(r=>r.instalacao&&!jaSet.has(r.instalacao));
+    if(!novos.length) continue; // tudo que existe já foi notificado antes
+
+    const instalacoesTxt=[...new Set(novos.map(r=>r.instalacao))].join(', ')||'—';
+    const ulsTxt=[...new Set(novos.map(r=>r.ul).filter(Boolean))].join(', ')||'—';
+
+    // Buscar supervisor da base (ilike pois "matriculas" guarda em Title Case e "usuarios_portal" em CAIXA ALTA)
+    const {data:sup}=await sb.from('usuarios_portal').select('id,nome,email')
+      .ilike('base',v.base||'').eq('perfil','supervisor').eq('ativo',true).single();
+    if(!sup) continue;
+    // Calcular prazo
+    const prazo=new Date();
+    prazo.setDate(prazo.getDate()+(cfg.prazo_dias||5));
+    const prazoStr=prazo.toLocaleDateString('pt-BR');
+    const prazoDb=prazo.toISOString().split('T')[0];
+    // Salvar tratativa
+    const {data:trat}=await sb.from('tratativas').insert({
+      tipo:'erros', automatica:true, mes_ref:mesRef,
+      matricula:v.matricula, nome_leiturista:v.nome||v.matricula, base:v.base,
+      supervisor_id:sup.id, supervisor_email:sup.email, supervisor_nome:sup.nome,
+      detalhe:`${novos.length} erro(s) novo(s) de leitura em ${mesRef} (total no mês: ${v.qtd})`,
+      instalacoes:instalacoesTxt, uls:ulsTxt,
+      prazo_resposta:prazoDb,
+    }).select().single();
+    // Registrar cada instalação como já notificada, pra não repetir em uploads futuros
+    await sb.from('tratativas_disparos').insert(
+      novos.map(r=>({matricula:v.matricula,mes_ref:mesRef,tipo:'erros',instalacao:r.instalacao,base:v.base||''}))
+    );
+    // Enviar email
+    const link=`${location.origin}/controles/tratativas/responder.html?id=${trat?.id}`;
+    await enviarEmailTratativa(sup.email,
+      'Gestão de Controles - Ação atribuída a você',
+      `<div style="font-family:system-ui,sans-serif;max-width:500px;margin:0 auto;color:#1a2a1a">
+        <div style="background:#1a4a1a;padding:14px 20px;border-radius:8px 8px 0 0"><span style="color:#c8e8c8;font-weight:500;font-size:15px">GBS Serviços — Gestão de Controles</span></div>
+        <div style="background:#fff;border:0.5px solid #c0dcc0;padding:20px;border-radius:0 0 8px 8px">
+          <p style="margin-bottom:14px">Olá, <strong>${sup.nome}</strong>!</p>
+          <p style="margin-bottom:14px">Uma ocorrência foi identificada e requer sua atenção.</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px">
+            <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500;width:35%">Base</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${v.base||'—'}</td></tr>
+            <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Tipo</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">Erros de leitura</td></tr>
+            <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Ocorrência</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${novos.length} erro(s) novo(s) — leiturista ${v.nome||v.matricula} — ${mesRef}</td></tr>
+            <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">Instalação</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${instalacoesTxt}</td></tr>
+            <tr><td style="padding:6px 10px;border:0.5px solid #c0dcc0;background:#f8fbf8;font-weight:500">UL</td><td style="padding:6px 10px;border:0.5px solid #c0dcc0">${ulsTxt}</td></tr>
+          </table>
+          <p style="margin-bottom:16px">Por favor, registre a tratativa até <strong>${prazoStr}</strong> clicando no botão abaixo.</p>
+          <div style="text-align:center;margin-bottom:20px"><a href="${link}" style="background:#2d7a2d;color:#fff;padding:10px 28px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">REGISTRAR TRATATIVA</a></div>
+          <p style="font-size:11px;color:#4a7a4a;border-top:0.5px solid #c0dcc0;padding-top:12px">At.te<br><strong>Gestão de Controles</strong></p>
+        </div>
+      </div>`
+    );
   }
 }
 
