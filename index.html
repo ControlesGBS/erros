@@ -166,6 +166,10 @@ td.td-left{text-align:left}
 
   <div class="graficos-row">
     <div class="grafico-box">
+      <h4>Reclamações por Base</h4>
+      <canvas id="chart-reclama-base"></canvas>
+    </div>
+    <div class="grafico-box">
       <h4>Top 15 Leituristas — Reclamações</h4>
       <canvas id="chart-reclama-leit"></canvas>
     </div>
@@ -563,11 +567,27 @@ function atualizarKpisReclamacoes(){
 }
 
 function atualizarGraficoReclamacoes(){
+  // --- Reclamações por Base ---
+  destroyChart('reclama-base');
+  const porBase={};
+  dadosFiltradosReclamacoes.forEach(r=>{const k=r.base||'—';porBase[k]=(porBase[k]||0)+1;});
+  const basLabels=Object.keys(porBase).sort((a,b)=>porBase[b]-porBase[a]);
+  charts['reclama-base']=new Chart(document.getElementById('chart-reclama-base'),{
+    type:'bar',
+    data:{labels:basLabels,datasets:[{data:basLabels.map(k=>porBase[k]),backgroundColor:'#2d7a2d',borderRadius:3}]},
+    options:{
+      plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:10},color:'#1a4a1a',formatter:v=>v}},
+      scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},
+      maintainAspectRatio:true,responsive:true
+    }
+  });
+
+  // --- Top 15 Leituristas ---
   destroyChart('reclama-leit');
   const porLeit={};
   dadosFiltradosReclamacoes.forEach(r=>{
     const k=r.matricula||'—';
-    if(!porLeit[k]) porLeit[k]={qtd:0,nome:r.nome||r.matricula||'—'};
+    if(!porLeit[k]) porLeit[k]={qtd:0,nome:r.nome||r.matricula||'—',base:r.base||'—'};
     porLeit[k].qtd++;
   });
   const leitSort=Object.entries(porLeit).sort((a,b)=>b[1].qtd-a[1].qtd).slice(0,15);
@@ -579,11 +599,24 @@ function atualizarGraficoReclamacoes(){
     },
     options:{
       indexAxis:'y',
-      plugins:{legend:{display:false},tooltip:{callbacks:{title:([ctx])=>{
-        const mat=leitSort[ctx.dataIndex][0];
-        return `${mat} — ${porLeit[mat].nome}`;
-      }}}},
-      scales:{x:{ticks:{font:{size:10}},beginAtZero:true},y:{ticks:{font:{size:10}}}},
+      layout:{padding:{right:24}},
+      plugins:{legend:{display:false},
+        datalabels:{anchor:'end',align:'end',font:{size:10},color:'#1a2a1a',formatter:v=>v},
+        tooltip:{callbacks:{
+          title:([ctx])=>{
+            const mat=leitSort[ctx.dataIndex][0];
+            return porLeit[mat].nome;
+          },
+          label:(ctx)=>{
+            const mat=leitSort[ctx.dataIndex][0];
+            return porLeit[mat].base;
+          },
+          afterLabel:(ctx)=>{
+            const mat=leitSort[ctx.dataIndex][0];
+            return `Quantidade: ${porLeit[mat].qtd}`;
+          }
+        }}},
+      scales:{x:{ticks:{font:{size:10}},beginAtZero:true,grace:'15%'},y:{ticks:{font:{size:10}}}},
       maintainAspectRatio:true,responsive:true
     }
   });
