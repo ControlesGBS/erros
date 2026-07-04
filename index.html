@@ -398,7 +398,7 @@ function atualizarGraficos(){
   const porLeit={};
   dadosFiltrados.forEach(r=>{
     const k=r.matricula||'—';
-    if(!porLeit[k]) porLeit[k]={qtd:0,nome:r.nome||r.matricula||'—'};
+    if(!porLeit[k]) porLeit[k]={qtd:0,nome:r.nome||r.matricula||'—',base:r.base||'—'};
     porLeit[k].qtd++;
   });
   const leitSort=Object.entries(porLeit).sort((a,b)=>b[1].qtd-a[1].qtd).slice(0,15);
@@ -410,10 +410,16 @@ function atualizarGraficos(){
     },
     options:{
       indexAxis:'y',
-      plugins:{legend:{display:false},tooltip:{callbacks:{title:([ctx])=>{
-        const mat=leitSort[ctx.dataIndex][0];
-        return `${mat} — ${porLeit[mat].nome}`;
-      }}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:([ctx])=>{
+          const mat=leitSort[ctx.dataIndex][0];
+          return porLeit[mat].nome;
+        },
+        label:(ctx)=>{
+          const mat=leitSort[ctx.dataIndex][0];
+          return porLeit[mat].base;
+        }
+      }}},
       scales:{x:{ticks:{font:{size:10}},beginAtZero:true},y:{ticks:{font:{size:10}}}},
       maintainAspectRatio:true,responsive:true
     }
