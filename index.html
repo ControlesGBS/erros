@@ -27,6 +27,8 @@ body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size
 .filtros label{font-size:11px;color:#4a7a4a;display:block;margin-bottom:3px}
 .filtros select{border:0.5px solid #a0c8a0;border-radius:5px;padding:4px 8px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:30px}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.kpi-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.graficos-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .kpi{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:10px 14px;text-align:center}
 .kpi-label{font-size:10px;color:#4a7a4a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
 .kpi-value{font-size:22px;font-weight:500;color:#1a4a1a}
@@ -158,13 +160,13 @@ td.td-left{text-align:left}
     </div>
   </div>
 
-  <div class="kpi-row">
+  <div class="kpi-row-3">
     <div class="kpi"><div class="kpi-label">Total de Reclamações</div><div class="kpi-value" id="kpir-total">—</div></div>
     <div class="kpi"><div class="kpi-label">Bases Afetadas</div><div class="kpi-value" id="kpir-bases">—</div></div>
     <div class="kpi"><div class="kpi-label">Leituristas Afetados</div><div class="kpi-value" id="kpir-leit">—</div></div>
   </div>
 
-  <div class="graficos-row">
+  <div class="graficos-row-2">
     <div class="grafico-box">
       <h4>Reclamações por Base</h4>
       <canvas id="chart-reclama-base"></canvas>
@@ -577,7 +579,7 @@ function atualizarGraficoReclamacoes(){
     data:{labels:basLabels,datasets:[{data:basLabels.map(k=>porBase[k]),backgroundColor:'#2d7a2d',borderRadius:3}]},
     options:{
       plugins:{legend:{display:false},datalabels:{anchor:'end',align:'end',font:{size:10},color:'#1a4a1a',formatter:v=>v}},
-      scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true}},
+      scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},beginAtZero:true,grace:'20%'}},
       maintainAspectRatio:true,responsive:true
     }
   });
