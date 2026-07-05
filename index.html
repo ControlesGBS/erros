@@ -264,9 +264,9 @@ async function carregarDados(){
     .select('instalacao,ul,rz,mes_provavel,mes_erro,matricula,cidade,base')
     .order('mes_erro',{ascending:false})
     .order('base');
-  if(PERFIL_BASE) q=q.filter('base','ilike',PERFIL_BASE);
-  const {data:erros,error}=await q;
+  const {data:errosTodos,error}=await q;
   if(error){console.error(error);return;}
+  const erros = PERFIL_BASE ? (errosTodos||[]).filter(r=>normBase(r.base)===normBase(PERFIL_BASE)) : errosTodos;
 
   // Buscar nomes dos leituristas (matrícula é exclusiva, não repete entre bases)
   const mats=[...new Set((erros||[]).map(r=>r.matricula).filter(Boolean))];
@@ -325,7 +325,7 @@ function aplicarFiltros(){
   dadosFiltrados=todosErros.filter(r=>{
     if(mes && r.mes_erro!==mes) return false;
     if(rz && r.rz!==rz) return false;
-    if(base && (r.base||'').toLowerCase()!==base.toLowerCase()) return false;
+    if(base && normBase(r.base)!==normBase(base)) return false;
     if(mat && r.matricula!==mat) return false;
     return true;
   });
@@ -509,7 +509,7 @@ async function carregarReclamacoes(){
     base:matMap[r.matricula]?.base||'—'
   }));
 
-  if(PERFIL_BASE) todosReclamacoes=todosReclamacoes.filter(r=>(r.base||'').toLowerCase()===PERFIL_BASE.toLowerCase());
+  if(PERFIL_BASE) todosReclamacoes=todosReclamacoes.filter(r=>normBase(r.base)===normBase(PERFIL_BASE));
 
   popularFiltrosReclamacoes();
   aplicarFiltrosReclamacoes();
@@ -551,7 +551,7 @@ function aplicarFiltrosReclamacoes(){
 
   dadosFiltradosReclamacoes=todosReclamacoes.filter(r=>{
     if(mes && r.mes_ref!==mes) return false;
-    if(base && (r.base||'').toLowerCase()!==base.toLowerCase()) return false;
+    if(base && normBase(r.base)!==normBase(base)) return false;
     if(mat && r.matricula!==mat) return false;
     return true;
   });
@@ -928,9 +928,10 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
     const instalacoesTxt=[...new Set(novos.map(r=>r.instalacao))].join(', ')||'—';
     const ulsTxt=[...new Set(novos.map(r=>r.ul).filter(Boolean))].join(', ')||'—';
 
-    // Buscar supervisor da base (ilike pois "matriculas" guarda em Title Case e "usuarios_portal" em CAIXA ALTA)
-    const {data:sup}=await sb.from('usuarios_portal').select('id,nome,email')
-      .ilike('base',v.base||'').eq('perfil','supervisor').eq('ativo',true).single();
+    // Buscar supervisor da base (comparação sem acento/maiúscula — "matriculas" e "usuarios_portal" usam grafias diferentes)
+    const {data:supervisoresAtivos}=await sb.from('usuarios_portal').select('id,nome,email,base')
+      .eq('perfil','supervisor').eq('ativo',true);
+    const sup=(supervisoresAtivos||[]).find(s=>normBase(s.base)===normBase(v.base));
     if(!sup) continue;
     // Calcular prazo
     const prazo=new Date();
@@ -977,6 +978,11 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
 
 // ── PERFIL DO USUÁRIO ─────────────────────────────────────────────
 let PERFIL_BASE=null, PERFIL_TIPO=null;
+
+// Normaliza nome de base: remove acentos, espaços extras e diferenças de maiúscula/minúscula
+function normBase(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
 
 // ── INIT ─────────────────────────────────────────────────────────
 (async()=>{
