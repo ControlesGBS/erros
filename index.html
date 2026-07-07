@@ -756,6 +756,7 @@ async function processarReclamacoes(){
 
     prog.className='progresso ok';
     prog.textContent=`✓ ${recs.length} reclamações salvas!`;
+    registrarUploadSupabase('reclamacoes');
     await carregarReclamacoes();
   }catch(e){
     console.error(e);
@@ -869,6 +870,7 @@ async function processarErros(){
       await verificarGatilhosErros(mesRef, recsEnriq);
     }
     prog.textContent=`✓ ${recsEnriq.length} erros salvos — gatilhos verificados!`;
+    registrarUploadSupabase('erros');
     await carregarDados();
   }catch(e){
     prog.className='progresso erro';
@@ -977,7 +979,12 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
 }
 
 // ── PERFIL DO USUÁRIO ─────────────────────────────────────────────
-let PERFIL_BASE=null, PERFIL_TIPO=null;
+let PERFIL_BASE=null, PERFIL_TIPO=null, USUARIO_NOME=null;
+
+// ── LOG DE ATUALIZAÇÃO (Supabase — alimenta o popup global) ──────
+async function registrarUploadSupabase(tipo){
+  await sb.from('uploads_log').upsert({tipo,atualizado_em:new Date().toISOString(),atualizado_por:USUARIO_NOME||'—'});
+}
 
 // Normaliza nome de base: remove acentos, espaços extras e diferenças de maiúscula/minúscula
 function normBase(s){
@@ -991,11 +998,11 @@ function normBase(s){
 
   const {data:up}=await sb.from('usuarios_portal').select('nome,perfil,base,ativo').eq('id',user.id).single();
   if(up&&up.ativo){
-    PERFIL_TIPO=up.perfil; PERFIL_BASE=up.base||null;
+    PERFIL_TIPO=up.perfil; PERFIL_BASE=up.base||null; USUARIO_NOME=up.nome||user.email;
     document.getElementById('hdr-user').textContent=up.nome||user.email;
   } else {
     document.getElementById('hdr-user').textContent=user.email;
-    PERFIL_TIPO='gestor'; PERFIL_BASE=null;
+    PERFIL_TIPO='gestor'; PERFIL_BASE=null; USUARIO_NOME=user.email;
   }
 
   // Esconder admin se não for gestor nem supervisor_geral
@@ -1019,5 +1026,6 @@ function normBase(s){
 })();
 </script>
 <script src="/controles/auto-logout.js"></script>
+<script src="/controles/notificacoes-atualizacao.js"></script>
 </body>
 </html>
