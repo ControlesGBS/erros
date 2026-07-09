@@ -1004,7 +1004,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
     if(!sup){ resumo.semSupervisor++; continue; }
     // Calcular prazo
     const prazo=new Date();
-    prazo.setDate(prazo.getDate()+(cfg.prazo_dias||5));
+    prazo.setDate(prazo.getDate()+(cfg.prazo_err||5));
     const prazoStr=prazo.toLocaleDateString('pt-BR');
     const prazoDb=prazo.toISOString().split('T')[0];
     // Salvar tratativa
