@@ -806,20 +806,51 @@ async function processarErros(){
       }
       return null;
     };
+    // Igual col(), mas devolve o valor cru (sem virar string) — precisa pros campos de
+    // data, porque se a célula for uma data de verdade o xlsx.js entrega um número de
+    // série do Excel (ex: 46204), não o texto "jul/26" que aparece na planilha.
+    const colRaw=(row,nomes)=>{
+      for(const n of nomes){
+        if(row[n]!=null) return row[n];
+      }
+      return null;
+    };
+    const MESES_PT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    // Converte pra yyyy-mm-01 a partir de: número de série do Excel, Date, "mm/aaaa",
+    // "mm/aa" ou "mmm/aa" (ex: "jul/26", só existe em português, sem acento nessas abreviações)
+    const parseMes=s=>{
+      if(s==null||s==='') return null;
+      if(typeof s==='number'){
+        const d=new Date(Date.UTC(1899,11,30)+s*86400000);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-01`;
+      }
+      if(s instanceof Date){
+        return `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-01`;
+      }
+      const str=String(s).trim();
+      let m=str.match(/^(\d{1,2})\/(\d{2,4})$/);
+      if(m){
+        const ano=m[2].length===2?`20${m[2]}`:m[2];
+        return `${ano}-${m[1].padStart(2,'0')}-01`;
+      }
+      m=str.toLowerCase().match(/^([a-z]{3})\/(\d{2,4})$/);
+      if(m){
+        const idx=MESES_PT.indexOf(m[1]);
+        if(idx>=0){
+          const ano=m[2].length===2?`20${m[2]}`:m[2];
+          return `${ano}-${String(idx+1).padStart(2,'0')}-01`;
+        }
+      }
+      return null;
+    };
 
     const recs=rows.map(row=>{
       const instalacao=col(row,['Instalacao','Instalação','INSTALACAO']);
       const ul=col(row,['UL','ul']);
-      const mesP=col(row,['Mes Provavel','Mês Provável','MES_PROVAVEL','Mes_Provavel']);
+      const mesP=colRaw(row,['Mes Provavel','Mês Provável','MES_PROVAVEL','Mes_Provavel']);
       const matricula=col(row,['Matricula','Matrícula','MATRICULA']);
-      const mesE=col(row,['Mes Erro','Mês Erro','MES_ERRO','Mes_Erro']);
-      if(!instalacao||!ul||!mesE) return null;
-      // Converter mm/yyyy para yyyy-mm-01
-      const parseMes=s=>{
-        if(!s) return null;
-        const m=String(s).match(/^(\d{1,2})\/(\d{4})$/);
-        return m?`${m[2]}-${m[1].padStart(2,'0')}-01`:null;
-      };
+      const mesE=colRaw(row,['Mes Erro','Mês Erro','MES_ERRO','Mes_Erro']);
+      if(!instalacao||!ul||mesE==null) return null;
       const mes_erro=parseMes(mesE);
       if(!mes_erro) return null; // "Mês Erro" veio num formato que não reconhecemos — melhor descartar do que gravar com mes_erro nulo (nunca mais seria substituído em upload futuro)
       const rz=String(ul).padStart(8,'0').slice(0,2);
