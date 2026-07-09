@@ -817,7 +817,8 @@ async function processarErros(){
     };
     const MESES_PT=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
     // Converte pra yyyy-mm-01 a partir de: número de série do Excel, Date, "mm/aaaa",
-    // "mm/aa" ou "mmm/aa" (ex: "jul/26", só existe em português, sem acento nessas abreviações)
+    // "mm/aa", "aaaa/mm" ou "mmm/aa" (ex: "jul/26", só existe em português, sem acento
+    // nessas abreviações)
     const parseMes=s=>{
       if(s==null||s==='') return null;
       if(typeof s==='number'){
@@ -828,7 +829,11 @@ async function processarErros(){
         return `${s.getFullYear()}-${String(s.getMonth()+1).padStart(2,'0')}-01`;
       }
       const str=String(s).trim();
-      let m=str.match(/^(\d{1,2})\/(\d{2,4})$/);
+      // "aaaa/mm" ou "aaaa-mm" (ano na frente — ex: "2026/06")
+      let m=str.match(/^(\d{4})[\/-](\d{1,2})$/);
+      if(m) return `${m[1]}-${m[2].padStart(2,'0')}-01`;
+      // "mm/aaaa" ou "mm/aa" (mês na frente — ex: "06/2026")
+      m=str.match(/^(\d{1,2})\/(\d{2,4})$/);
       if(m){
         const ano=m[2].length===2?`20${m[2]}`:m[2];
         return `${ano}-${m[1].padStart(2,'0')}-01`;
@@ -931,7 +936,7 @@ async function processarErros(){
       msg+='.';
     }
     prog.textContent=msg;
-    registrarUploadSupabase('erros');
+    registrarUploadSupabase('erros',msg);
     await carregarDados();
   }catch(e){
     prog.className='progresso erro';
@@ -1046,8 +1051,20 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
 let PERFIL_BASE=null, PERFIL_TIPO=null, USUARIO_NOME=null;
 
 // ── LOG DE ATUALIZAÇÃO (Supabase — alimenta o popup global) ──────
-async function registrarUploadSupabase(tipo){
-  await sb.from('uploads_log').upsert({tipo,atualizado_em:new Date().toISOString(),atualizado_por:USUARIO_NOME||'—'});
+async function registrarUploadSupabase(tipo,detalhe){
+  await sb.from('uploads_log').upsert({tipo,atualizado_em:new Date().toISOString(),atualizado_por:USUARIO_NOME||'—',detalhe:detalhe||null});
+}
+
+// Mostra o resultado do último upload de Erros, mesmo pra quem não foi quem subiu —
+// assim não depende de alguém mandar print pra saber se disparou e-mail ou não.
+async function mostrarUltimoUploadErros(){
+  const prog=document.getElementById('prog-erros');
+  if(!prog) return;
+  const {data}=await sb.from('uploads_log').select('detalhe,atualizado_por,atualizado_em').eq('tipo','erros').maybeSingle();
+  if(!data||!data.detalhe) return;
+  const dt=data.atualizado_em?new Date(data.atualizado_em).toLocaleString('pt-BR'):'—';
+  prog.className='progresso ok';
+  prog.textContent=`Último upload (${data.atualizado_por||'—'}, ${dt}): ${data.detalhe}`;
 }
 
 // Normaliza nome de base: remove acentos, espaços extras e diferenças de maiúscula/minúscula
@@ -1074,6 +1091,8 @@ function normBase(s){
     document.querySelectorAll('.nav button').forEach(btn=>{
       if(btn.textContent.trim()==='Administração') btn.style.display='none';
     });
+  } else {
+    mostrarUltimoUploadErros();
   }
 
   // Travar filtro de base se supervisor
