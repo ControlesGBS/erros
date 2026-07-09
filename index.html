@@ -22,7 +22,8 @@ body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size
 .nav button:hover:not(.ativo){background:#1a4a1a}
 .pag{display:none;padding:16px 20px}
 .pag.ativo{display:block}
-#pag-painel.ativo,#pag-reclamacoes.ativo{display:flex}
+#pag-painel.ativo,#pag-reclamacoes.ativo{display:flex;flex-direction:column;min-height:0}
+.topo-congelado{flex-shrink:0}
 .filtros{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:12px 16px;margin-bottom:10px}
 .filtros label{font-size:11px;color:#4a7a4a;display:block;margin-bottom:3px}
 .filtros select{border:0.5px solid #a0c8a0;border-radius:5px;padding:4px 8px;font-size:13px;background:#f8fbf8;color:#1a2a1a;height:30px}
@@ -36,9 +37,15 @@ body{font-family:system-ui,sans-serif;background:#f4f6f4;color:#1a2a1a;font-size
 .grafico-box{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;padding:12px}
 .grafico-box h4{font-size:11px;font-weight:500;color:#4a7a4a;text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px;text-align:center}
 .grafico-box canvas{max-height:200px}
-.twrap{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;overflow:hidden}
-.twrap-hdr{background:#1a4a1a;color:#c0e8c0;padding:8px 14px;font-size:12px;font-weight:500;display:flex;justify-content:space-between;align-items:center}
-.twrap-body{overflow-x:auto;max-height:460px;overflow-y:auto}
+.twrap{background:#fff;border:0.5px solid #c0dcc0;border-radius:8px;overflow:hidden;flex:1;min-height:160px;display:flex;flex-direction:column}
+.twrap-hdr{background:#1a4a1a;color:#c0e8c0;padding:8px 14px;font-size:12px;font-weight:500;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.twrap-body{overflow-x:auto;overflow-y:auto;flex:1;min-height:0}
+@media (max-height:750px){
+  .grafico-box canvas{max-height:130px}
+  .graficos-row,.graficos-row-2{margin-bottom:8px}
+  .kpi-row,.kpi-row-3{margin-bottom:8px}
+  .filtros{margin-bottom:8px;padding:8px 16px}
+}
 table{width:100%;border-collapse:collapse;font-size:12px}
 thead th{background:#1a4a1a;color:#c0e8c0;font-weight:500;padding:6px 8px;text-align:center;white-space:nowrap;border-right:0.5px solid #2d6a2d;position:sticky;top:0;z-index:1}
 tbody tr:nth-child(even){background:#f8fbf8}
@@ -80,7 +87,8 @@ td.td-left{text-align:left}
 </div>
 
 <!-- PAINEL -->
-<div class="pag ativo" id="pag-painel" style="flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
+<div class="pag ativo" id="pag-painel" style="height:calc(100vh - 100px);overflow:hidden;">
+  <div class="topo-congelado">
   <div class="filtros">
     <div><label>Mês do Erro</label>
       <select id="f-mes" onchange="aplicarFiltros()"><option value="">Todos</option></select>
@@ -117,8 +125,9 @@ td.td-left{text-align:left}
       <canvas id="chart-leit"></canvas>
     </div>
   </div>
+  </div><!-- fim topo-congelado -->
 
-  <div class="twrap" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+  <div class="twrap">
     <div class="twrap-hdr">
       <span>Registros de Erro</span>
       <div style="display:flex;align-items:center;gap:12px">
@@ -126,7 +135,7 @@ td.td-left{text-align:left}
         <button onclick="downloadExcel()" style="background:#2d7a2d;border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⬇ Excel</button>
       </div>
     </div>
-    <div class="twrap-body" style="flex:1;overflow-y:auto;overflow-x:auto;">
+    <div class="twrap-body">
       <table>
         <thead><tr>
           <th>Instalação</th>
@@ -147,7 +156,8 @@ td.td-left{text-align:left}
 </div>
 
 <!-- RECLAMAÇÕES -->
-<div class="pag" id="pag-reclamacoes" style="flex-direction:column;height:calc(100vh - 100px);overflow:hidden;">
+<div class="pag" id="pag-reclamacoes" style="height:calc(100vh - 100px);overflow:hidden;">
+  <div class="topo-congelado">
   <div class="filtros">
     <div><label>Mês</label>
       <select id="fr-mes" onchange="aplicarFiltrosReclamacoes()"><option value="">Todos</option></select>
@@ -176,8 +186,9 @@ td.td-left{text-align:left}
       <canvas id="chart-reclama-leit"></canvas>
     </div>
   </div>
+  </div><!-- fim topo-congelado -->
 
-  <div class="twrap" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+  <div class="twrap">
     <div class="twrap-hdr">
       <span>Registros de Reclamação</span>
       <div style="display:flex;align-items:center;gap:12px">
@@ -185,7 +196,7 @@ td.td-left{text-align:left}
         <button onclick="downloadExcelReclamacoes()" style="background:#2d7a2d;border:none;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px">⬇ Excel</button>
       </div>
     </div>
-    <div class="twrap-body" style="flex:1;overflow-y:auto;overflow-x:auto;">
+    <div class="twrap-body">
       <table>
         <thead><tr>
           <th>Instalação</th>
@@ -809,6 +820,8 @@ async function processarErros(){
         const m=String(s).match(/^(\d{1,2})\/(\d{4})$/);
         return m?`${m[2]}-${m[1].padStart(2,'0')}-01`:null;
       };
+      const mes_erro=parseMes(mesE);
+      if(!mes_erro) return null; // "Mês Erro" veio num formato que não reconhecemos — melhor descartar do que gravar com mes_erro nulo (nunca mais seria substituído em upload futuro)
       const rz=String(ul).padStart(8,'0').slice(0,2);
       const lc=String(ul).padStart(8,'0').slice(2,6);
       return {
@@ -817,11 +830,12 @@ async function processarErros(){
         rz,
         local_cod:lc,
         mes_provavel:parseMes(mesP),
-        mes_erro:parseMes(mesE),
+        mes_erro,
         matricula:matricula||null,
       };
     }).filter(Boolean);
 
+    const puladas=rows.length-recs.length;
     if(!recs.length){prog.textContent='Nenhum dado válido encontrado.';btn.disabled=false;return;}
 
     // Enriquecer com cidade/base via local_base
@@ -845,31 +859,47 @@ async function processarErros(){
       };
     });
 
-    // Agrupar por mes_erro — deletar só os meses presentes no arquivo
     const mesesNoArquivo=[...new Set(recsEnriq.map(r=>r.mes_erro).filter(Boolean))];
-    prog.textContent=`Atualizando ${mesesNoArquivo.length} mês/meses no banco...`;
-    for(const mes of mesesNoArquivo){
-      await sb.from('erros').delete().eq('mes_erro',mes);
-    }
 
-    // Inserir em lotes
+    // Upsert por instalação+mês (chave natural) em vez de apagar o mês inteiro e reinserir —
+    // reenviar a mesma planilha (acumulada, com linhas novas embaixo) nunca duplica, porque
+    // cada instalação/mês só pode existir uma vez (constraint erros_instalacao_mes_erro_key).
     const LOTE=200;
     for(let i=0;i<recsEnriq.length;i+=LOTE){
-      const {error}=await sb.from('erros').insert(recsEnriq.slice(i,i+LOTE));
+      const {error}=await sb.from('erros').upsert(recsEnriq.slice(i,i+LOTE),{onConflict:'instalacao,mes_erro'});
       if(error) throw error;
       prog.textContent=`Salvando... ${Math.min(i+LOTE,recsEnriq.length)}/${recsEnriq.length}`;
     }
 
-    prog.className='progresso ok';
-    prog.textContent=`✓ ${recsEnriq.length} erros salvos (${mesesNoArquivo.length} mês/meses)!`;
-    // Verificar gatilhos de erros
-    prog.textContent+=` Verificando gatilhos...`;
+    // Verificar gatilhos de erros — um mês por vez, cada um só com os registros DAQUELE mês
+    // (antes passava o arquivo inteiro pra cada mês, misturando meses diferentes no gatilho)
+    prog.textContent=`${recsEnriq.length} erros salvos. Verificando gatilhos...`;
+    const resumo={disparados:0,abaixoDoMinimo:0,jaNotificados:0,semSupervisor:0,inativoOuPausado:false};
     for(const mesDb of mesesNoArquivo){
       const [aa,mm]=mesDb.split('-');
       const mesRef=`${mm}/${aa}`;
-      await verificarGatilhosErros(mesRef, recsEnriq);
+      const recsDoMes=recsEnriq.filter(r=>r.mes_erro===mesDb);
+      const r=await verificarGatilhosErros(mesRef, recsDoMes);
+      resumo.disparados+=r.disparados;
+      resumo.abaixoDoMinimo+=r.abaixoDoMinimo;
+      resumo.jaNotificados+=r.jaNotificados;
+      resumo.semSupervisor+=r.semSupervisor;
+      if(r.inativoOuPausado) resumo.inativoOuPausado=true;
     }
-    prog.textContent=`✓ ${recsEnriq.length} erros salvos — gatilhos verificados!`;
+
+    prog.className='progresso ok';
+    let msg=`✓ ${recsEnriq.length} erros salvos (${mesesNoArquivo.length} mês/meses)`;
+    if(puladas>0) msg+=` — ${puladas} linha(s) ignorada(s) (Mês Erro em formato não reconhecido)`;
+    msg+='. ';
+    if(resumo.inativoOuPausado){
+      msg+='⚠ Gatilho de e-mail de Erros está INATIVO ou PAUSADO — nada foi disparado (veja Tratativas → Configurações).';
+    }else{
+      msg+=`Gatilhos: ${resumo.disparados} disparado(s)`;
+      if(resumo.semSupervisor) msg+=`, ${resumo.semSupervisor} sem supervisor cadastrado na base`;
+      if(resumo.jaNotificados) msg+=`, ${resumo.jaNotificados} leiturista(s) sem instalação nova (já tinha sido notificado antes)`;
+      msg+='.';
+    }
+    prog.textContent=msg;
     registrarUploadSupabase('erros');
     await carregarDados();
   }catch(e){
@@ -893,14 +923,15 @@ async function enviarEmailTratativa(para, assunto, corpo){
 
 // ── GATILHOS ERROS ────────────────────────────────────────────────
 async function verificarGatilhosErros(mesRef, recsEnriq){
+  const resumo={disparados:0,abaixoDoMinimo:0,jaNotificados:0,semSupervisor:0,inativoOuPausado:false};
   const {data:cfg}=await sb.from('tratativas_config').select('*').single();
-  if(!cfg||!cfg.erros_ativo||cfg.erros_email_pausado) return;
+  if(!cfg||!cfg.erros_ativo||cfg.erros_email_pausado){ resumo.inativoOuPausado=true; return resumo; }
   const qtdGatilho=cfg.erros_qtd||1;
 
   // Buscar nome e base REAL do leiturista (matrícula é exclusiva — a base certa é a da tabela matriculas,
   // não a base geográfica da instalação, que pode divergir quando ele lê UL de área vizinha)
   const matsIniciais=[...new Set(recsEnriq.map(r=>r.matricula).filter(Boolean))];
-  if(!matsIniciais.length) return;
+  if(!matsIniciais.length) return resumo;
   const {data:matData}=await sb.from('matriculas').select('matricula,nome_leiturista,base').in('matricula',matsIniciais);
   const matInfo={};
   (matData||[]).forEach(r=>{matInfo[r.matricula]={nome:r.nome_leiturista,base:(r.base||'').toUpperCase()||null};});
@@ -916,7 +947,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
   });
   // Disparar — só notifica instalações/erros que ainda não foram avisados (matrícula + instalação + mês)
   for(const [matricula,v] of Object.entries(contagem)){
-    if(v.qtd<qtdGatilho) continue; // ainda não atingiu o mínimo configurado no mês
+    if(v.qtd<qtdGatilho){ resumo.abaixoDoMinimo++; continue; } // ainda não atingiu o mínimo configurado no mês
 
     // Verificar quais instalações desse leiturista já foram notificadas neste mês
     const {data:jaData}=await sb.from('tratativas_disparos').select('instalacao')
@@ -925,7 +956,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
 
     // Erros novos: instalações que ainda não geraram notificação
     const novos=v.registros.filter(r=>r.instalacao&&!jaSet.has(r.instalacao));
-    if(!novos.length) continue; // tudo que existe já foi notificado antes
+    if(!novos.length){ resumo.jaNotificados++; continue; } // tudo que existe já foi notificado antes
 
     const instalacoesTxt=[...new Set(novos.map(r=>r.instalacao))].join(', ')||'—';
     const ulsTxt=[...new Set(novos.map(r=>r.ul).filter(Boolean))].join(', ')||'—';
@@ -934,7 +965,7 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
     const {data:supervisoresAtivos}=await sb.from('usuarios_portal').select('id,nome,email,base')
       .eq('perfil','supervisor').eq('ativo',true);
     const sup=(supervisoresAtivos||[]).find(s=>normBase(s.base)===normBase(v.base));
-    if(!sup) continue;
+    if(!sup){ resumo.semSupervisor++; continue; }
     // Calcular prazo
     const prazo=new Date();
     prazo.setDate(prazo.getDate()+(cfg.prazo_dias||5));
@@ -975,7 +1006,9 @@ async function verificarGatilhosErros(mesRef, recsEnriq){
         </div>
       </div>`
     );
+    resumo.disparados++;
   }
+  return resumo;
 }
 
 // ── PERFIL DO USUÁRIO ─────────────────────────────────────────────
