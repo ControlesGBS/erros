@@ -740,7 +740,7 @@ async function processarReclamacoes(){
     };
 
     const recs=rows.map(row=>{
-      const instalacao=col(row,['Instalacao','Instalação','INSTALACAO']);
+      const instalacao=col(row,['Instalacao','Instalação','INSTALACAO','Unidade Consumidora','Unidade consumidora','UNIDADE CONSUMIDORA','Unidade_Consumidora','UC']);
       const matricula=col(row,['Matricula','Matrícula','MATRICULA']);
       const motivo=col(row,['Motivo','MOTIVO']);
       const dataV=col(row,['Data','DATA','data']);
@@ -850,7 +850,7 @@ async function processarErros(){
     };
 
     const recs=rows.map(row=>{
-      const instalacao=col(row,['Instalacao','Instalação','INSTALACAO']);
+      const instalacao=col(row,['Instalacao','Instalação','INSTALACAO','Unidade Consumidora','Unidade consumidora','UNIDADE CONSUMIDORA','Unidade_Consumidora','UC']);
       const ul=col(row,['UL','ul']);
       const mesP=colRaw(row,['Mes Provavel','Mês Provável','MES_PROVAVEL','Mes_Provavel']);
       const matricula=col(row,['Matricula','Matrícula','MATRICULA']);
